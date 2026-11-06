@@ -13,6 +13,14 @@ def load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _interval_wait_seconds(last_posted_at, now, interval_minutes, grace_seconds):
+    """Seconds still to wait after applying a small scheduler-jitter grace window."""
+    last_dt = datetime.strptime(last_posted_at, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    elapsed_seconds = max(0, (now - last_dt).total_seconds())
+    remaining_seconds = interval_minutes * 60 - elapsed_seconds - grace_seconds
+    return max(0, math.ceil(remaining_seconds))
+
+
 def _is_valid_price(value):
     """Accept only finite positive numeric prices."""
     try:
@@ -33,7 +41,6 @@ def offer_score(offer):
         score += 8
     if _has_real_discount(offer.get("original_price_egp"), offer.get("price_egp")):
         score += 6
-    # These are optional, externally verified numeric signals. Missing means zero.
     for field, cap, weight in (("demand_score", 100, 0.2), ("quality_score", 100, 0.1)):
         try:
             score += max(0, min(float(offer.get(field, 0)), cap)) * weight
@@ -59,14 +66,20 @@ def _has_real_discount(original_price, price):
 def _eligible_offers(offers, settings):
     """Return enabled offers with valid required data and usable HTTPS links."""
     eligible = []
+    safety = settings.get("safety", {})
     for offer in offers:
         if not offer.get("enabled") or not offer.get("id") or not offer.get("title"):
             continue
         store_cfg = settings.get("stores", {}).get(offer.get("store"), {})
         if not store_cfg.get("enabled"):
             continue
-        if settings.get("safety", {}).get("skip_missing_price") and not _is_valid_price(offer.get("price_egp")):
+        if safety.get("skip_missing_price") and not _is_valid_price(offer.get("price_egp")):
             continue
+        if safety.get("require_image", True):
+            image_url = str(offer.get("image_url") or "").strip()
+            if not image_url.startswith("https://"):
+                print(f"SKIP {offer['id']}: missing or invalid HTTPS image_url")
+                continue
         try:
             url = build_affiliate_url(offer, store_cfg)
         except ProviderError as exc:
@@ -136,8 +149,6 @@ def run_once():
         print("NO_ELIGIBLE_OFFERS")
         return
 
-    # A dry run exits before SQLite initialization or any Telegram API call.
-    # It previews eligible IDs only and leaves rotation/duplicate state untouched.
     if settings.get("dry_run", False):
         candidate_ids = ",".join(offer.get("id", "unknown") for offer, _ in eligible)
         print(
@@ -157,19 +168,19 @@ def run_once():
                 PRIMARY KEY (cycle_no, offer_id)
             )
         """)
-        # Preserve historical one-time posts as cycle 1.
         db.execute("""
             INSERT OR IGNORE INTO rotation_posts(cycle_no, offer_id, message_id, posted_at)
             SELECT 1, offer_id, message_id, posted_at FROM posted
         """)
-        # The scheduler supports 5-minute intervals; keep this configurable for production cadence changes.
         interval = max(5, int(settings.get("interval_minutes", 120)))
+        grace_seconds = max(0, int(settings.get("interval_grace_seconds", 60)))
         last = db.execute("SELECT MAX(posted_at) FROM rotation_posts").fetchone()[0]
         if last:
-            last_dt = datetime.strptime(last, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-            elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds() / 60
-            if elapsed < interval:
-                print(f"WAIT: {interval - elapsed:.0f} minutes remain before next post")
+            wait_seconds = _interval_wait_seconds(
+                last, datetime.now(timezone.utc), interval, grace_seconds
+            )
+            if wait_seconds > 0:
+                print(f"WAIT: {wait_seconds} seconds remain before next post (including {grace_seconds}s scheduler grace)")
                 return
 
         current_cycle = db.execute("SELECT COALESCE(MAX(cycle_no), 1) FROM rotation_posts").fetchone()[0]
@@ -195,7 +206,6 @@ def run_once():
                 "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
                 (current_cycle, offer["id"], message_id),
             )
-            # Legacy table remains an audit trail, not a publication lock.
             db.execute(
                 "INSERT OR IGNORE INTO posted(offer_id, message_id) VALUES (?, ?)",
                 (offer["id"], message_id),
