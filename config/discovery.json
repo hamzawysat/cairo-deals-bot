@@ -1,0 +1,5 @@
+{
+  "enabled": false,
+  "policy": "Only add public RSS/Atom feeds whose terms explicitly permit this use. Candidates are research leads, never verified Amazon product data.",
+  "sources": []
+}
