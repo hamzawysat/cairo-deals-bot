@@ -2,7 +2,7 @@
   "timezone": "Africa/Cairo",
   "interval_minutes": 5,
   "max_posts_per_run": 1,
-  "dry_run": true,
+  "dry_run": false,
   "stores": {
     "amazon_eg": {
       "enabled": true,
