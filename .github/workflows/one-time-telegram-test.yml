@@ -24,11 +24,12 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          from pathlib import Path
           from src.main import load_json, _eligible_offers, message_for
           from src.publisher import send_telegram
 
-          settings = load_json("config/settings.json")
-          offers = load_json("data/offers.json")
+          settings = load_json(Path("config/settings.json"))
+          offers = load_json(Path("data/offers.json"))
           target_id = "amazon-redragon-gs522-speakers-003"
           selected = next((item for item in offers if item.get("id") == target_id), None)
           if selected is None:
