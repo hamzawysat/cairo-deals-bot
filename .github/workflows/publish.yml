@@ -23,7 +23,9 @@ jobs:
           path: data/state.sqlite3
           key: cairo-deals-state-${{ github.run_id }}
           restore-keys: cairo-deals-state-
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt pytest
+      - name: Run tests
+        run: pytest -q
       - name: Publish one eligible offer
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
