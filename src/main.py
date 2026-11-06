@@ -172,8 +172,9 @@ def run_once():
         }
         remaining = [(offer, url) for offer, url in eligible if offer["id"] not in used]
         if not remaining:
-            print("CYCLE_COMPLETE: all currently eligible offers have already been published; waiting for new offers")
-            return
+            current_cycle += 1
+            print(f"START_CYCLE {current_cycle}")
+            remaining = eligible
 
         max_posts = max(1, int(settings.get("max_posts_per_run", 1)))
         posted_count = 0
