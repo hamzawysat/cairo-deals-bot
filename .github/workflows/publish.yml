@@ -2,7 +2,9 @@ name: Publish affiliate offer
 on:
   workflow_dispatch:
   schedule:
-    - cron: "7 */2 * * *"
+    # Check hourly so a delayed/missed GitHub schedule has another chance.
+    # src/main.py enforces the real 120-minute minimum between Telegram posts.
+    - cron: "7 * * * *"
 permissions:
   contents: read
 concurrency:
