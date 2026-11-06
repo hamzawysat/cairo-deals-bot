@@ -152,7 +152,8 @@ def run_once():
             INSERT OR IGNORE INTO rotation_posts(cycle_no, offer_id, message_id, posted_at)
             SELECT 1, offer_id, message_id, posted_at FROM posted
         """)
-        # The scheduler supports 5-minute intervals; keep this configurable for production cadence changes.\n        interval = max(5, int(settings.get("interval_minutes", 120)))
+        # The scheduler supports 5-minute intervals; keep this configurable for production cadence changes.
+        interval = max(5, int(settings.get("interval_minutes", 120)))
         last = db.execute("SELECT MAX(posted_at) FROM rotation_posts").fetchone()[0]
         if last:
             last_dt = datetime.strptime(last, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
