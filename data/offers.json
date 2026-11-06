@@ -105,5 +105,30 @@
       "ورق_تصوير",
       "عروض_11_11"
     ]
+  },
+  {
+    "id": "amazon-brother-dcp-t530dw-006",
+    "store": "amazon_eg",
+    "title": "Brother DCP-T530DW Wireless Ink Tank All-in-One Printer",
+    "search_terms": "Brother DCP-T530DW Wireless Ink Tank Printer Print Scan Copy Duplex",
+    "price_egp": 8499,
+    "affiliate_url": "https://link.amazon/B01UgB2OW",
+    "image_url": "https://www.brother.ae/-/media/fb20c7dd66dd4cb596d89a0f057def62.png?as=0&h=454&hash=23D55D29A0302D3C6363C3604E6ED921&rev=087a1d5634314fc0a6affa1eb5dd0042&w=454",
+    "enabled": true,
+    "description": "طابعة Brother DCP-T530DW بخزان حبر مدمج، تجمع الطباعة والنسخ والمسح الضوئي مع الاتصال اللاسلكي والطباعة التلقائية على الوجهين.",
+    "features": [
+      "طباعة ونسخ ومسح ضوئي",
+      "اتصال Wi-Fi وWi-Fi Direct وUSB 2.0",
+      "طباعة تلقائية على الوجهين حتى مقاس A4",
+      "سرعة تصل إلى 16 صورة/دقيقة للأسود و9 صور/دقيقة للألوان",
+      "درج ورق بسعة 150 ورقة",
+      "زجاجات الحبر المرفقة تكفي حتى 7,500 صفحة أسود و5,000 صفحة ألوان وفق معيار الشركة"
+    ],
+    "hashtags": [
+      "Brother",
+      "طابعات",
+      "مستلزمات_مكتبية",
+      "عروض_11_11"
+    ]
   }
 ]
