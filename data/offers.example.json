@@ -1,0 +1,13 @@
+[
+  {
+    "id": "sample-amazon-001",
+    "store": "amazon_eg",
+    "title": "اسم المنتج هنا",
+    "search_terms": "كلمات+البحث",
+    "price_egp": null,
+    "affiliate_url": "",
+    "image_url": "",
+    "enabled": false,
+    "description": "أضف عرضاً حقيقياً بعد التحقق من السعر والرابط"
+  }
+]
