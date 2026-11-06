@@ -89,5 +89,18 @@
     "description": null,
     "features": [],
     "hashtags": []
+  },
+  {
+    "id": "amazon-pending-010",
+    "store": "amazon_eg",
+    "affiliate_url": "https://link.amazon/B0j5duBM4",
+    "status": "needs_affiliate_link_and_product_verification",
+    "title": null,
+    "price_egp": null,
+    "original_price_egp": null,
+    "image_url": null,
+    "description": null,
+    "features": [],
+    "hashtags": []
   }
 ]
