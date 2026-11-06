@@ -1,11 +1,12 @@
-import json
-from src.main import message_for
+from src.main import message_for, offer_score, rank_offers
 from src.providers import build_affiliate_url, ProviderError
+
 
 def test_amazon_link_contains_tracking_id():
     url = build_affiliate_url({"store":"amazon_eg","title":"دفاية","search_terms":"دفاية"}, {"tracking_id":"cairodeals-21"})
     assert "cairodeals-21" in url
     assert url.startswith("https://www.amazon.eg/")
+
 
 def test_jumia_needs_verified_affiliate_url():
     try:
@@ -13,6 +14,7 @@ def test_jumia_needs_verified_affiliate_url():
         assert False, "Expected ProviderError"
     except ProviderError:
         pass
+
 
 def test_message_does_not_invent_price():
     text = message_for({"title":"منتج","price_egp":None}, "https://example.com")
@@ -42,3 +44,22 @@ def test_message_shows_price_only_when_provided():
     }, "https://example.com")
     assert "💰 السعر: 120 جنيه" in text
     assert "🏷️ السعر السابق: 150 جنيه" in text
+
+
+def test_offer_score_rewards_complete_verified_data():
+    basic = {"title": "منتج"}
+    complete = {
+        "title": "منتج", "description": "وصف موثق",
+        "features": ["ميزة 1", "ميزة 2"], "price_egp": 100,
+        "original_price_egp": 130, "demand_score": 80, "quality_score": 90,
+    }
+    assert offer_score(complete) > offer_score(basic)
+
+
+def test_rank_offers_is_highest_score_first_and_stable_for_ties():
+    low = {"id": "low", "title": "منتج"}
+    high = {"id": "high", "title": "منتج", "description": "وصف", "features": ["ميزة"]}
+    equal_a = {"id": "a", "title": "A"}
+    equal_b = {"id": "b", "title": "B"}
+    ranked = rank_offers([low, high, equal_a, equal_b])
+    assert [item["id"] for item in ranked] == ["high", "low", "a", "b"]
