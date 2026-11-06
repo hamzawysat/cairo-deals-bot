@@ -19,7 +19,7 @@
   },
   "safety": {
     "require_product_url": true,
-    "skip_missing_price": false,
+    "skip_missing_price": true,
     "avoid_duplicate_products": true
   }
 }
