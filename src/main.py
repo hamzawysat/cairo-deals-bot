@@ -136,6 +136,16 @@ def run_once():
         print("NO_ELIGIBLE_OFFERS")
         return
 
+    # A dry run exits before SQLite initialization or any Telegram API call.
+    # It previews eligible IDs only and leaves rotation/duplicate state untouched.
+    if settings.get("dry_run", False):
+        candidate_ids = ",".join(offer.get("id", "unknown") for offer, _ in eligible)
+        print(
+            f"DRY_RUN: eligible_offers={len(eligible)} candidates={candidate_ids} "
+            "telegram_send=SKIPPED database=UNCHANGED rotation=UNCHANGED"
+        )
+        return
+
     init_db()
     with sqlite3.connect(DB_PATH) as db:
         db.execute("""

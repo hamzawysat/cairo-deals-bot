@@ -1,5 +1,6 @@
 from src.main import message_for, offer_score, rank_offers
 from src.providers import build_affiliate_url, ProviderError
+from src import main as main_module
 
 
 def test_amazon_link_contains_tracking_id():
@@ -63,3 +64,33 @@ def test_rank_offers_is_highest_score_first_and_stable_for_ties():
     equal_b = {"id": "b", "title": "B"}
     ranked = rank_offers([low, high, equal_a, equal_b])
     assert [item["id"] for item in ranked] == ["high", "low", "a", "b"]
+
+
+def test_dry_run_does_not_send_or_touch_database(tmp_path, monkeypatch, capsys):
+    settings = {"dry_run": True, "channels": {"telegram": {"enabled": True}}}
+    offers = [{"id": "demo-1", "title": "Demo"}]
+
+    def fake_load_json(path):
+        return settings if str(path).endswith("settings.json") else offers
+
+    monkeypatch.setattr(main_module, "load_json", fake_load_json)
+    monkeypatch.setattr(
+        main_module,
+        "_eligible_offers",
+        lambda loaded_offers, loaded_settings: [(loaded_offers[0], "https://example.com/item")],
+    )
+    database_path = tmp_path / "state.sqlite3"
+    monkeypatch.setattr(main_module, "DB_PATH", database_path)
+
+    def forbidden_send(*args, **kwargs):
+        raise AssertionError("Telegram must not be called during dry_run")
+
+    monkeypatch.setattr(main_module, "send_telegram", forbidden_send)
+    main_module.run_once()
+
+    output = capsys.readouterr().out
+    assert "DRY_RUN" in output
+    assert "telegram_send=SKIPPED" in output
+    assert "database=UNCHANGED" in output
+    assert "rotation=UNCHANGED" in output
+    assert not database_path.exists()

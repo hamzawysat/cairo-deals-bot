@@ -3,9 +3,11 @@
 A private, modular affiliate publishing system. Amazon Egypt is the first enabled provider; additional stores plug in through separate adapters.
 
 ## Current operation
-- GitHub Actions checks for offers every two hours (minute 7 UTC); GitHub may delay scheduled runs.
-- The publisher enforces the configured 120-minute minimum interval.
+- The publishing workflow is triggered through `workflow_dispatch`; it has no GitHub `schedule` trigger.
+- The planned external cron-job.org cadence is every five minutes (`2-59/5 * * * *`).
+- The publisher enforces the configured 5-minute minimum interval between Telegram posts.
 - At most `max_posts_per_run` eligible offers are published per run (currently 1).
+- During scheduler validation, `dry_run` is enabled: eligible offers are listed, but Telegram is not called and SQLite rotation/duplicate state is not changed.
 - Offers are ranked by data completeness and optional externally supplied `demand_score` / `quality_score`. These scores must be based on a real source; the bot does not invent demand signals.
 - Duplicate offer IDs are skipped using SQLite state restored through Actions cache (best-effort).
 
