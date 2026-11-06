@@ -44,6 +44,14 @@ def rank_offers(offers):
     return [offer for _, offer in indexed]
 
 
+def _has_real_discount(original_price, price):
+    """Return True only when supplied prices are valid and original is higher."""
+    try:
+        return original_price is not None and price is not None and float(original_price) > float(price)
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def message_for(offer, url):
     """Build a useful, factual Telegram ad without inventing product claims."""
     title = str(offer.get("title") or "منتج مميز").strip()
@@ -61,7 +69,7 @@ def message_for(offer, url):
         lines.append("")
     if price is not None:
         lines.append(f"💰 السعر: {price} جنيه")
-    if original_price is not None and price is not None and float(original_price) > float(price):
+    if _has_real_discount(original_price, price):
         lines.append(f"🏷️ السعر السابق: {original_price} جنيه")
     if price is not None or original_price is not None:
         lines.append("")
