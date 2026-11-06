@@ -1,30 +1,25 @@
 # Cairo Deals Bot
 
-A private, modular affiliate publishing system. Amazon Egypt is the first enabled provider; Jumia and future stores plug in through separate adapters.
+A private, modular affiliate publishing system. Amazon Egypt is the first enabled provider; additional stores plug in through separate adapters.
 
-## Architecture
-- **Store adapters:** each store builds or validates its own affiliate URL. No store-page scraping.
-- **Offer engine:** reads verified offers from `data/offers.json`, skips disabled stores/offers, and avoids reposting the same offer ID.
-- **Channel publisher:** Telegram is the first publisher. More channels can be added independently.
-- **Schedule:** GitHub Actions checks hourly. `config/settings.json` controls the minimum interval between posts (60, 120, 180 minutes, etc.). The workflow cadence is hourly, so it cannot publish more frequently than that.
-- **Safety:** Telegram's JSON response must say `ok: true`; unknown prices are omitted rather than invented.
+## Current operation
+- GitHub Actions runs at minute 7 every two hours (UTC); runs can be delayed by GitHub.
+- The publisher enforces the 120-minute minimum interval configured in `config/settings.json`.
+- At most `max_posts_per_run` eligible offers are published per run (currently 1).
+- Eligible offers are ranked by completeness and optional supplied `demand_score` / `quality_score`. Those scores must come from a real, documented source; the bot does not manufacture demand signals.
+- Duplicate offer IDs are skipped using the local SQLite state cache (best-effort persistence in GitHub Actions).
 
-## First setup
-1. Copy `data/offers.example.json` to `data/offers.json` and enter verified products. Keep `enabled: false` until each product and link has been checked.
-2. In GitHub: Settings → Secrets and variables → Actions, add:
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHANNEL_ID` (for example, `@cairo_deals`)
-3. Confirm the bot is an administrator in the target channel.
-4. Review `config/settings.json`; keep Jumia disabled until you have a valid Jumia affiliate URL/source.
-5. Run Actions → Publish affiliate offer → Run workflow manually.
+## Current discovery limitation
+The bot currently reads its offer queue from `data/offers.json`. It does **not** crawl Amazon or autonomously discover current prices, stock, or trending products. Do not scrape Amazon pages or invent prices, discounts, ratings, images, or demand. New discovery sources must be permitted by their providers and must preserve source URLs and timestamps; Amazon product facts and affiliate links must be verified through approved Associates tools. Creators API integration is a later step after account eligibility.
 
-## Important limitations
-- GitHub Actions is a scheduled job runner, not a permanent 24/7 server. Cron runs can be delayed.
-- Duplicate-state persistence uses Actions cache and is best-effort, not a transactional database.
-- Amazon product prices, stock, and images are not fetched automatically in this first milestone. Only publish details you verify and are permitted to use.
-- Jumia affiliate URLs must be supplied from its official affiliate tooling; this project will not guess tracking links or scrape product pages.
-- No tokens, passwords, or personal account details belong in the repository.
+## Safety
+- Only enabled stores and offers are considered.
+- Telegram publishing can be disabled with `channels.telegram.enabled=false`.
+- HTTPS is required for product links.
+- Unknown prices are omitted rather than invented.
+- Jumia remains disabled until an official, verified affiliate link/source is available.
+- Keep all credentials in GitHub Actions secrets; never commit them.
 
-## Local checks
-`pip install -r requirements.txt`
-`python -m src.main`
+## Tests
+`pip install -r requirements.txt pytest`
+`python -m pytest -q`
