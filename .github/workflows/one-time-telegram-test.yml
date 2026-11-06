@@ -1,0 +1,46 @@
+name: One-time Telegram product test
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dispatch/test-telegram-once.json"
+permissions:
+  contents: read
+jobs:
+  publish-one-test-ad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Publish exactly the selected test product
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          from src.main import load_json, _eligible_offers, message_for
+          from src.publisher import send_telegram
+
+          settings = load_json("config/settings.json")
+          offers = load_json("data/offers.json")
+          target_id = "amazon-redragon-gs522-speakers-003"
+          selected = next((item for item in offers if item.get("id") == target_id), None)
+          if selected is None:
+              raise SystemExit("Selected test offer not found")
+          eligible = dict((item.get("id"), (item, url)) for item, url in _eligible_offers([selected], settings))
+          if target_id not in eligible:
+              raise SystemExit("Selected test offer is not eligible")
+          offer, url = eligible[target_id]
+          message_id = send_telegram(
+              os.environ.get("TELEGRAM_BOT_TOKEN", ""),
+              os.environ.get("TELEGRAM_CHANNEL_ID", ""),
+              message_for(offer, url),
+          )
+          print(f"TEST_AD_PUBLISHED id={target_id} telegram_message_id={message_id}")
+          PY
