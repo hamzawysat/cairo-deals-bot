@@ -13,6 +13,13 @@ A private, modular affiliate publishing system. Amazon Egypt is the first enable
 - Offers are ranked by data completeness and optional externally supplied `demand_score` / `quality_score`. These scores must be based on a real source; the bot does not invent demand signals.
 - Duplicate offer IDs are skipped using SQLite state restored through Actions cache (best-effort).
 
+## Facebook Page publishing
+- A separate publisher is available in `src/facebook_publisher.py`; it uploads the complete product image (no crop) and caption to the configured Facebook Page using Meta Graph API.
+- Facebook is disabled by default in `config/settings.json` and is not connected to the scheduled Telegram workflow. Adding this module does not publish anything to Facebook.
+- Configure `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN`, and optionally `FACEBOOK_GRAPH_API_VERSION` as GitHub Actions secrets before a separately reviewed integration step.
+- The Page token needs the `pages_manage_posts`, `pages_read_engagement`, and `pages_show_list` permissions as applicable to the Page publishing flow. The person authorizing the token must have a Page task that permits creating content.
+- Current default Graph API version: `v26.0`. Confirm the version and token validity before enabling live publishing.
+
 ## Discovery pipeline
 - `src/discovery.py` reads explicitly configured public RSS 2.0 or Atom feeds.
 - New items are stored in `data/candidates.json` with original source URL, feed name, and timestamps.

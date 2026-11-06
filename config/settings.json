@@ -17,6 +17,10 @@
   "channels": {
     "telegram": {
       "enabled": true
+    },
+    "facebook": {
+      "enabled": false,
+      "graph_api_version": "v26.0"
     }
   },
   "safety": {
