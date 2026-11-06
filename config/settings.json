@@ -1,0 +1,25 @@
+{
+  "timezone": "Africa/Cairo",
+  "interval_minutes": 60,
+  "max_posts_per_run": 1,
+  "stores": {
+    "amazon_eg": {
+      "enabled": true,
+      "tracking_id": "cairodeals-21"
+    },
+    "jumia_eg": {
+      "enabled": false,
+      "tracking_id": ""
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true
+    }
+  },
+  "safety": {
+    "require_product_url": true,
+    "skip_missing_price": false,
+    "avoid_duplicate_products": true
+  }
+}
