@@ -13,8 +13,8 @@ def load_json(path):
 
 def message_for(offer, url):
     price = offer.get("price_egp")
-    price_line = f"💰 السعر: {price} جنيه\\n" if price is not None else ""
-    return f"🔥 {offer['title']}\\n\\n{price_line}🛒 اطلب من هنا:\\n{url}\\n\\n#ad"
+    price_line = f"💰 السعر: {price} جنيه\n" if price is not None else ""
+    return f"🔥 {offer['title']}\n\n{price_line}🛒 اطلب من هنا:\n{url}\n\n#ad"
 
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
