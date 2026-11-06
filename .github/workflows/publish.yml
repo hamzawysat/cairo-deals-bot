@@ -24,6 +24,8 @@ jobs:
           key: cairo-deals-state-${{ github.run_id }}
           restore-keys: cairo-deals-state-
       - run: pip install -r requirements.txt pytest
+      - name: Discover permitted RSS candidates
+        run: python -m src.discovery
       - name: Run tests
         run: python -m pytest -q
       - name: Publish one eligible offer
