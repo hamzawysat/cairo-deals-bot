@@ -1,5 +1,5 @@
 """One-run affiliate publisher with deterministic offer ranking."""
-import json, os, sqlite3
+import json, os, sqlite3, math
 from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
@@ -13,6 +13,15 @@ def load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _is_valid_price(value):
+    """Accept only finite positive numeric prices."""
+    try:
+        number = float(value)
+        return math.isfinite(number) and number > 0
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def offer_score(offer):
     """Rank only on supplied signals; never infer demand or product facts."""
     score = 0
@@ -20,14 +29,10 @@ def offer_score(offer):
         score += 10
     features = [item for item in (offer.get("features") or []) if str(item).strip()]
     score += min(len(features), 5) * 4
-    if offer.get("price_egp") is not None:
+    if _is_valid_price(offer.get("price_egp")):
         score += 8
-    if offer.get("original_price_egp") is not None and offer.get("price_egp") is not None:
-        try:
-            if float(offer["original_price_egp"]) > float(offer["price_egp"]):
-                score += 6
-        except (TypeError, ValueError):
-            pass
+    if _has_real_discount(offer.get("original_price_egp"), offer.get("price_egp")):
+        score += 6
     # These are optional, externally verified numeric signals. Missing means zero.
     for field, cap, weight in (("demand_score", 100, 0.2), ("quality_score", 100, 0.1)):
         try:
@@ -60,6 +65,8 @@ def message_for(offer, url):
     features = [str(item).strip() for item in features if str(item).strip()]
     price = offer.get("price_egp")
     original_price = offer.get("original_price_egp")
+    if not _is_valid_price(price):
+        price = None
     lines = [f"✨ {title}", ""]
     if description:
         lines.extend([description, ""])
