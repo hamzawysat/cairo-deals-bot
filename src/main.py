@@ -12,9 +12,35 @@ def load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 def message_for(offer, url):
+    """Build a useful, factual Telegram ad without inventing product claims."""
+    title = str(offer.get("title") or "منتج مميز").strip()
+    description = str(offer.get("description") or "").strip()
+    features = offer.get("features") or []
+    features = [str(item).strip() for item in features if str(item).strip()]
     price = offer.get("price_egp")
-    price_line = f"💰 السعر: {price} جنيه\n" if price is not None else ""
-    return f"🔥 {offer['title']}\n\n{price_line}🛒 اطلب من هنا:\n{url}\n\n#ad"
+    original_price = offer.get("original_price_egp")
+    lines = [f"✨ {title}", ""]
+    if description:
+        lines.extend([description, ""])
+    if features:
+        lines.append("⭐ أبرز الاستخدامات والمميزات:")
+        lines.extend(f"• {item}" for item in features)
+        lines.append("")
+    if price is not None:
+        lines.append(f"💰 السعر: {price} جنيه")
+    if original_price is not None and price is not None and float(original_price) > float(price):
+        lines.append(f"🏷️ السعر السابق: {original_price} جنيه")
+    if price is not None or original_price is not None:
+        lines.append("")
+    lines.extend(["🛍️ شوف التفاصيل واطلب من هنا:", url, ""])
+    hashtags = offer.get("hashtags") or ["عروض_القاهرة", "تسوق_أونلاين"]
+    clean_tags = []
+    for tag in hashtags:
+        tag = str(tag).strip().lstrip("#").replace(" ", "_")
+        if tag and tag not in clean_tags:
+            clean_tags.append(tag)
+    lines.append("#إعلان " + " ".join(f"#{tag}" for tag in clean_tags[:5]))
+    return "\n".join(lines)
 
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
