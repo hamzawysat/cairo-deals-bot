@@ -18,5 +18,70 @@
       "مشروعات_إلكترونية",
       "أدوات_هواة"
     ]
+  },
+  {
+    "id": "amazon-redmi-15c-8-256-002",
+    "store": "amazon_eg",
+    "title": "Xiaomi Redmi 15C 8GB RAM 256GB",
+    "search_terms": "Xiaomi Redmi 15C 8GB 256GB",
+    "price_egp": 12500,
+    "affiliate_url": "https://amzn.to/4zOglNb",
+    "image_url": "https://bf1af2.akinoncloudcdn.com/products/2025/09/08/611790/14a5e1d7-4aa6-4d5c-aa6c-759169173f18_size3840_cropCenter.jpg",
+    "enabled": true,
+    "description": "موبايل شاومي Redmi 15C بذاكرة 8 جيجابايت RAM وسعة تخزين 256 جيجابايت، وشاشة كبيرة 6.9 بوصة بمعدل تحديث 120Hz.",
+    "features": [
+      "معالج MediaTek Helio G81 Ultra",
+      "كاميرا رئيسية 50MP",
+      "بطارية 6000mAh",
+      "يدعم شبكات 4G وشريحتين"
+    ],
+    "hashtags": [
+      "شاومي",
+      "موبايلات",
+      "عروض_11_11"
+    ]
+  },
+  {
+    "id": "amazon-redragon-gs522-speakers-003",
+    "store": "amazon_eg",
+    "title": "Redragon GS522 Cipher RGB Speakers",
+    "search_terms": "Redragon GS522 Cipher RGB Computer Speakers",
+    "price_egp": 1300,
+    "affiliate_url": "https://amzn.to/4sK21Cw",
+    "image_url": "https://cdn.awsli.com.br/2500x2500/1318/1318167/produto/318877037/gs522--2--0im1zpyt55.jpg",
+    "enabled": true,
+    "description": "سماعات كمبيوتر Redragon GS522 بصوت ستيريو 2.0 وإضاءة RGB، مناسبة للكمبيوتر واللابتوب.",
+    "features": [
+      "قدرة صوتية 5 واط × 2",
+      "ستة أوضاع لإضاءة RGB",
+      "توصيل USB للطاقة وAUX ‏3.5 مم للصوت",
+      "تحكم باللمس في الإضاءة"
+    ],
+    "hashtags": [
+      "ريدراجون",
+      "سماعات_كمبيوتر",
+      "عروض_11_11"
+    ]
+  },
+  {
+    "id": "amazon-mini-400-point-breadboard-004",
+    "store": "amazon_eg",
+    "title": "Mini 400 Points Solderless Breadboard",
+    "search_terms": "Mini 400 Points Solderless Breadboard",
+    "price_egp": 75,
+    "affiliate_url": "https://amzn.to/48ljJD7",
+    "image_url": "https://cdn.shopify.com/s/files/1/1509/1638/products/mini-breadboard-400-pin-mit-4-stromschienen-fur-jumper-kabel-251028.jpg?v=1679399013",
+    "enabled": true,
+    "description": "لوحة تجارب إلكترونية صغيرة 400 نقطة لتجميع واختبار الدوائر بدون لحام.",
+    "features": [
+      "400 نقطة توصيل",
+      "تركيب المكونات والأسلاك بسهولة دون لحام",
+      "مناسبة للتجارب والمشروعات الإلكترونية"
+    ],
+    "hashtags": [
+      "إلكترونيات",
+      "Breadboard",
+      "مشروعات_إلكترونية"
+    ]
   }
 ]
