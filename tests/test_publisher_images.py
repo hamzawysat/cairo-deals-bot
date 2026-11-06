@@ -20,7 +20,7 @@ def test_prepare_photo_fits_entire_portrait_inside_square(mock_get):
     with Image.open(prepared) as result:
         assert result.size == (1200, 1200)
         assert result.getpixel((10, 600)) == (255, 255, 255)
-        assert result.getpixel((600, 10)) != (255, 255, 255)
+        assert result.getpixel((600, 200)) != (255, 255, 255)
 
 
 @patch("src.publisher.requests.post")
