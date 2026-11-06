@@ -50,11 +50,33 @@ def rank_offers(offers):
 
 
 def _has_real_discount(original_price, price):
-    """Return True only when supplied prices are valid and original is higher."""
-    try:
-        return original_price is not None and price is not None and float(original_price) > float(price)
-    except (TypeError, ValueError, OverflowError):
+    """Return True only when both supplied prices are finite and positive."""
+    if not _is_valid_price(original_price) or not _is_valid_price(price):
         return False
+    return float(original_price) > float(price)
+
+
+def _eligible_offers(offers, settings):
+    """Return enabled offers with valid required data and usable HTTPS links."""
+    eligible = []
+    for offer in offers:
+        if not offer.get("enabled") or not offer.get("id") or not offer.get("title"):
+            continue
+        store_cfg = settings.get("stores", {}).get(offer.get("store"), {})
+        if not store_cfg.get("enabled"):
+            continue
+        if settings.get("safety", {}).get("skip_missing_price") and not _is_valid_price(offer.get("price_egp")):
+            continue
+        try:
+            url = build_affiliate_url(offer, store_cfg)
+        except ProviderError as exc:
+            print(f"SKIP {offer.get('id')}: {exc}")
+            continue
+        if not url.startswith("https://"):
+            print(f"SKIP {offer['id']}: product URL must use HTTPS")
+            continue
+        eligible.append((offer, url))
+    return sorted(eligible, key=lambda pair: -offer_score(pair[0]))
 
 
 def message_for(offer, url):
@@ -108,45 +130,68 @@ def run_once():
     if not telegram_cfg.get("enabled", True):
         print("SKIP: Telegram channel is disabled")
         return
+
+    eligible = _eligible_offers(offers, settings)
+    if not eligible:
+        print("NO_ELIGIBLE_OFFERS")
+        return
+
     init_db()
     with sqlite3.connect(DB_PATH) as db:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS rotation_posts (
+                cycle_no INTEGER NOT NULL,
+                offer_id TEXT NOT NULL,
+                message_id TEXT,
+                posted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (cycle_no, offer_id)
+            )
+        """)
+        # Preserve historical one-time posts as cycle 1.
+        db.execute("""
+            INSERT OR IGNORE INTO rotation_posts(cycle_no, offer_id, message_id, posted_at)
+            SELECT 1, offer_id, message_id, posted_at FROM posted
+        """)
         interval = max(60, int(settings.get("interval_minutes", 120)))
-        last = db.execute("SELECT MAX(posted_at) FROM posted").fetchone()[0]
+        last = db.execute("SELECT MAX(posted_at) FROM rotation_posts").fetchone()[0]
         if last:
             last_dt = datetime.strptime(last, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
             elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds() / 60
             if elapsed < interval:
                 print(f"WAIT: {interval - elapsed:.0f} minutes remain before next post")
                 return
-        eligible = []
-        for offer in offers:
-            if not offer.get("enabled") or not offer.get("id") or not offer.get("title"):
-                continue
-            store_cfg = settings.get("stores", {}).get(offer.get("store"), {})
-            if not store_cfg.get("enabled"):
-                continue
-            if settings.get("safety", {}).get("skip_missing_price") and offer.get("price_egp") is None:
-                continue
-            if db.execute("SELECT 1 FROM posted WHERE offer_id=?", (offer["id"],)).fetchone():
-                continue
-            try:
-                url = build_affiliate_url(offer, store_cfg)
-            except ProviderError as exc:
-                print(f"SKIP {offer.get('id')}: {exc}")
-                continue
-            if not url.startswith("https://"):
-                print(f"SKIP {offer['id']}: product URL must use HTTPS")
-                continue
-            eligible.append((offer, url))
-        eligible.sort(key=lambda pair: -offer_score(pair[0]))
+
+        current_cycle = db.execute("SELECT COALESCE(MAX(cycle_no), 1) FROM rotation_posts").fetchone()[0]
+        eligible_ids = [offer["id"] for offer, _ in eligible]
+        placeholders = ",".join("?" for _ in eligible_ids)
+        used = {
+            row[0] for row in db.execute(
+                f"SELECT offer_id FROM rotation_posts WHERE cycle_no=? AND offer_id IN ({placeholders})",
+                [current_cycle, *eligible_ids],
+            )
+        }
+        remaining = [(offer, url) for offer, url in eligible if offer["id"] not in used]
+        if not remaining:
+            current_cycle += 1
+            print(f"START_CYCLE {current_cycle}")
+            remaining = eligible
+
         max_posts = max(1, int(settings.get("max_posts_per_run", 1)))
         posted_count = 0
-        for offer, url in eligible[:max_posts]:
+        for offer, url in remaining[:max_posts]:
             message_id = send_telegram(token, channel, message_for(offer, url))
-            db.execute("INSERT INTO posted(offer_id, message_id) VALUES (?, ?)", (offer["id"], message_id))
+            db.execute(
+                "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
+                (current_cycle, offer["id"], message_id),
+            )
+            # Legacy table remains an audit trail, not a publication lock.
+            db.execute(
+                "INSERT OR IGNORE INTO posted(offer_id, message_id) VALUES (?, ?)",
+                (offer["id"], message_id),
+            )
             db.commit()
             posted_count += 1
-            print(f"POSTED {offer['id']} message_id={message_id} score={offer_score(offer)}")
+            print(f"POSTED {offer['id']} cycle={current_cycle} message_id={message_id} score={offer_score(offer)}")
     if not posted_count:
         print("NO_ELIGIBLE_OFFERS")
 
