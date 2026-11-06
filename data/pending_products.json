@@ -1,44 +1,5 @@
 [
   {
-    "id": "amazon-pending-002",
-    "store": "amazon_eg",
-    "affiliate_url": "https://amzn.to/4zOglNb",
-    "status": "needs_product_details",
-    "title": null,
-    "price_egp": null,
-    "original_price_egp": null,
-    "image_url": null,
-    "description": null,
-    "features": [],
-    "hashtags": []
-  },
-  {
-    "id": "amazon-pending-003",
-    "store": "amazon_eg",
-    "affiliate_url": "https://amzn.to/4sK21Cw",
-    "status": "needs_product_details",
-    "title": null,
-    "price_egp": null,
-    "original_price_egp": null,
-    "image_url": null,
-    "description": null,
-    "features": [],
-    "hashtags": []
-  },
-  {
-    "id": "amazon-pending-004",
-    "store": "amazon_eg",
-    "affiliate_url": "https://amzn.to/48ljJD7",
-    "status": "needs_product_details",
-    "title": null,
-    "price_egp": null,
-    "original_price_egp": null,
-    "image_url": null,
-    "description": null,
-    "features": [],
-    "hashtags": []
-  },
-  {
     "id": "amazon-pending-006",
     "store": "amazon_eg",
     "affiliate_url": "https://link.amazon/B01UgB2OW",
