@@ -1,0 +1,15 @@
+[
+  {
+    "id": "amazon-pending-002",
+    "store": "amazon_eg",
+    "affiliate_url": "https://amzn.to/4zOglNb",
+    "status": "needs_product_details",
+    "title": null,
+    "price_egp": null,
+    "original_price_egp": null,
+    "image_url": null,
+    "description": null,
+    "features": [],
+    "hashtags": []
+  }
+]
