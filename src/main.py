@@ -179,7 +179,7 @@ def run_once():
         max_posts = max(1, int(settings.get("max_posts_per_run", 1)))
         posted_count = 0
         for offer, url in remaining[:max_posts]:
-            message_id = send_telegram(token, channel, message_for(offer, url))
+            message_id = send_telegram(token, channel, message_for(offer, url), photo_url=offer.get("image_url") or None)
             db.execute(
                 "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
                 (current_cycle, offer["id"], message_id),
