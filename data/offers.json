@@ -8,6 +8,15 @@
     "affiliate_url": "https://amzn.to/4jUDok9",
     "image_url": "",
     "enabled": true,
-    "description": "Amazon Egypt product link supplied by the channel owner. Price intentionally omitted until verified."
+    "description": "أسلاك توصيل إلكترونية تُستخدم لربط المكونات في التجارب والمشروعات الإلكترونية.",
+    "features": [
+      "توصيل من Female إلى Male",
+      "مناسبة لتوصيلات وتجارب الدوائر الإلكترونية"
+    ],
+    "hashtags": [
+      "إلكترونيات",
+      "مشروعات_إلكترونية",
+      "أدوات_هواة"
+    ]
   }
 ]
