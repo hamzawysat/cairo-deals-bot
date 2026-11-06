@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "dispatch/test-telegram-once.json"
+      - ".github/workflows/one-time-telegram-test.yml"
 permissions:
   contents: read
 jobs:
