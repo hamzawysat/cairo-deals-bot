@@ -1,5 +1,6 @@
 """One-run publisher. Designed for scheduled jobs, not a permanent daemon."""
 import json, os, sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
 from .publisher import send_telegram
@@ -12,8 +13,8 @@ def load_json(path):
 
 def message_for(offer, url):
     price = offer.get("price_egp")
-    price_line = f"💰 السعر: {price} جنيه\n" if price is not None else ""
-    return f"🔥 {offer['title']}\n\n{price_line}🛒 اطلب من هنا:\n{url}\n\n#ad"
+    price_line = f"💰 السعر: {price} جنيه\\n" if price is not None else ""
+    return f"🔥 {offer['title']}\\n\\n{price_line}🛒 اطلب من هنا:\\n{url}\\n\\n#ad"
 
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -22,11 +23,20 @@ def init_db():
 
 def run_once():
     settings = load_json(ROOT / "config" / "settings.json")
-    offers = load_json(ROOT / "data" / "offers.json") if (ROOT / "data" / "offers.json").exists() else load_json(ROOT / "data" / "offers.example.json")
+    offers_path = ROOT / "data" / "offers.json"
+    offers = load_json(offers_path if offers_path.exists() else ROOT / "data" / "offers.example.json")
     token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     channel = os.getenv("TELEGRAM_CHANNEL_ID", "")
     init_db()
     with sqlite3.connect(DB_PATH) as db:
+        interval = max(60, int(settings.get("interval_minutes", 60)))
+        last = db.execute("SELECT MAX(posted_at) FROM posted").fetchone()[0]
+        if last:
+            last_dt = datetime.strptime(last, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds() / 60
+            if elapsed < interval:
+                print(f"WAIT: {interval - elapsed:.0f} minutes remain before next post")
+                return
         for offer in offers:
             if not offer.get("enabled") or not offer.get("id") or not offer.get("title"):
                 continue
