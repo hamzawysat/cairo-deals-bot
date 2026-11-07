@@ -35,7 +35,7 @@ def send_facebook(
     photo_url: str | None = None,
     timeout: int = 30,
 ) -> str:
-    """Publish one post immediately to the configured Buffer channel."""
+    """Publish one standard Facebook feed post immediately via Buffer."""
     if not api_key:
         raise BufferPublishError("Buffer API key is missing")
     if not channel_id:
@@ -56,6 +56,7 @@ def send_facebook(
                 "channelId": channel_id,
                 "text": text,
                 "assets": assets,
+                "metadata": {"facebook": {"type": "post"}},
                 "schedulingType": "automatic",
                 "mode": "shareNow",
                 "needsApproval": False,
