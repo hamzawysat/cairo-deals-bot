@@ -68,3 +68,15 @@ def test_publish_state_marks_message_and_asin_only_after_confirmation():
     updated = mark_candidate_published({}, candidate)
     assert updated["published_message_ids"] == [22]
     assert updated["published_asins"] == ["B0ABC12345"]
+
+
+def test_source_publisher_scripts_are_valid_python():
+    import ast
+    from pathlib import Path
+
+    for filename in (
+        "scripts/build_source_offer_previews.py",
+        "scripts/publish_one_source_offer.py",
+        "scripts/inspect_source_samples.py",
+    ):
+        ast.parse(Path(filename).read_text(encoding="utf-8"), filename=filename)
