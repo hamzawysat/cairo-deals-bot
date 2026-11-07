@@ -9,34 +9,17 @@ import requests
 from src.original_content import extract_egypt_price_text
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
-SAR_AMOUNT_RE = re.compile(
-    r"([0-9]+(?:[.,٫][0-9]{1,2})?)\s*(?:ريال(?:\s*سعودي)?|ر\.?\s*س\.?|SAR)",
-    re.IGNORECASE,
-)
 OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\bwas\b", re.IGNORECASE)
 CURRENT_PRICE_LINE_RE = re.compile(r"السعر الحالي|السعر بعد الخصم|السعر|الآن|current price|now", re.IGNORECASE)
 
 
 def extract_source_price(text: str) -> tuple[str, str] | None:
-    """Return an explicitly stated EGP or SAR price without currency conversion."""
+    """Return only an explicitly stated Egyptian-pound price; reject all other currencies."""
     egp = extract_egypt_price_text(text or "")
-    if egp:
-        return egp, "EGP"
-    candidates = []
-    for index, raw_line in enumerate((text or "").translate(_DIGITS).splitlines()):
-        line = re.sub(r"\s+", " ", raw_line).strip()
-        if not line or OLD_PRICE_LINE_RE.search(line):
-            continue
-        match = SAR_AMOUNT_RE.search(line)
-        if not match:
-            continue
-        amount = match.group(1).replace("٫", ".").replace(",", ".")
-        priority = 0 if CURRENT_PRICE_LINE_RE.search(line) else 1
-        candidates.append((priority, index, f"{amount} ريال سعودي"))
-    if not candidates:
+    if not egp:
         return None
-    candidates.sort(key=lambda item: (item[0], item[1]))
-    return candidates[0][2], "SAR"
+    return egp, "EGP"
+
 from src.processor import build_amazon_affiliate_url
 
 ALLOWED_HOSTS = {
