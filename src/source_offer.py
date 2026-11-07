@@ -12,7 +12,7 @@ from src.processor import build_amazon_affiliate_url
 ALLOWED_HOSTS = {
     "amazon.eg", "www.amazon.eg", "m.amazon.eg",
     "amazon.com", "www.amazon.com", "m.amazon.com",
-    "amzn.to", "amzn.eu", "a.co",
+    "amzn.to", "amzn.eu", "a.co", "link.amazon",
 }
 URL_RE = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
 ASIN_RE = re.compile(r"^[A-Z0-9]{10}$")
