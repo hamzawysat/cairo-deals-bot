@@ -123,8 +123,8 @@ async def inspect() -> bool:
                                 "status": "ok",
                                 "review_status": classify_ocr_sample(lines)[0],
                                 "review_reason": classify_ocr_sample(lines)[1],
-                                "advertised_price_candidate": message_price or extract_egypt_price_text("\\n".join(lines)),
-                                "price_source": "message_text" if message_price else ("photo_ocr" if extract_egypt_price_text("\\n".join(lines)) else None),
+                                "advertised_price_candidate": message_price or extract_egypt_price_text("\n".join(lines)),
+                                "price_source": "message_text" if message_price else ("photo_ocr" if extract_egypt_price_text("\n".join(lines)) else None),
                             })
                         except Exception:
                             photo_failures += 1
