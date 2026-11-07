@@ -19,14 +19,16 @@ def validate_approved_image_record(record: dict | None) -> str | None:
         return None
     try:
         parsed = urlparse(str(record.get("url") or "").strip())
+        valid_port = parsed.port in (None, 443)
+        host = (parsed.hostname or "").lower()
     except ValueError:
         return None
     if (
         parsed.scheme != "https"
-        or (parsed.hostname or "").lower() not in APPROVED_IMAGE_HOSTS
+        or host not in APPROVED_IMAGE_HOSTS
         or parsed.username
         or parsed.password
-        or parsed.port not in (None, 443)
+        or not valid_port
     ):
         return None
     return parsed.geturl()
