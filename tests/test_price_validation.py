@@ -28,3 +28,14 @@ def test_nan_and_infinite_original_prices_are_not_discounts():
     assert not _has_real_discount("nan", 100)
     assert not _has_real_discount("inf", 100)
     assert not _has_real_discount(150, "nan")
+
+
+def test_egyptian_price_short_abbreviation_is_recognized():
+    from src.original_content import extract_egypt_price_text
+    assert extract_egypt_price_text("دواسة حمام بسعر 150 ج") == "150 جنيه"
+    assert extract_egypt_price_text("دفاية بسعر 291ج") == "291 جنيه"
+
+
+def test_saudi_riyal_is_never_treated_as_egyptian_pound():
+    from src.original_content import extract_egypt_price_text
+    assert extract_egypt_price_text("السعر 150 ريال سعودي") is None
