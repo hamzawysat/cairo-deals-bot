@@ -216,3 +216,17 @@ def test_resolver_rejects_non_2xx_final_response():
         host_resolver=PUBLIC_DNS,
     ) is None
     assert diagnostics["reason"] == "http_status_rejected"
+
+def test_source_caption_uses_cairo_deals_format_and_tagged_product_link():
+    resolver = lambda url: ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
+    candidate = build_source_candidate(
+        message_id=501,
+        message_text="لمبة LED حمراء 5 ملم - 5 قطع\\nالسعر 10.80 جنيه\\nhttps://amzn.to/item",
+        resolver=resolver,
+    )
+    caption = candidate["caption_preview"]
+    assert caption.startswith("✨ عرض جديد من Cairo Deals")
+    assert "📦 لمبة LED حمراء 5 ملم - 5 قطع" in caption
+    assert "💰 السعر المعلن: 10.80 جنيه" in caption
+    assert "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21" in caption
+    assert "تابعنا على جميع منصات التواصل" not in caption

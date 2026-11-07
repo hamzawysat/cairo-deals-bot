@@ -211,7 +211,6 @@ def build_source_candidate(
         return None
     price, currency = source_price
     affiliate_url = build_amazon_affiliate_url(asin, tracking_id)
-    price_line = f"💰 السعر المعلن: {price}"
     return {
         "source_channel": source_channel,
         "source_message_id": int(message_id),
@@ -222,9 +221,12 @@ def build_source_candidate(
         "price_source": "message_or_ocr_explicit_currency",
         "affiliate_url": affiliate_url,
         "caption_preview": (
-            f"🛍️ تفاصيل العرض\n{name}\n\n{price_line}\n"
-            "🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\n\n"
-            f"🔗 {affiliate_url}"
+            f"✨ عرض جديد من Cairo Deals\\n\\n"
+            f"📦 {name}\\n\\n"
+            f"💰 السعر المعلن: {price}\\n\\n"
+            "🛒 تفاصيل المنتج والشراء من هنا:\\n"
+            f"{affiliate_url}\\n\\n"
+            "قد يتغير السعر أو التوافر لدى البائع."
         ),
         "image_status": "source_image_review_only_not_cleared_for_republication",
         "publishing_performed": False,
