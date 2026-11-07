@@ -106,9 +106,12 @@ async def run() -> bool:
 
                 urls = extract_urls(body, entity_urls)
                 resolution_cache = {}
+                resolution_diagnostics = {}
                 def cached_resolver(url):
                     if url not in resolution_cache:
-                        resolution_cache[url] = resolve_amazon_product_url(url)
+                        details = {}
+                        resolution_cache[url] = resolve_amazon_product_url(url, diagnostics=details)
+                        resolution_diagnostics[url] = details
                     return resolution_cache[url]
                 try:
                     candidate = build_source_candidate(
@@ -151,6 +154,7 @@ async def run() -> bool:
                         }),
                         "url_count": len(urls),
                         "resolved_asins": resolved_asins,
+                        "resolution_debug": list(resolution_diagnostics.values()),
                         "name_candidate": name_candidate,
                         "egp_price_candidate": price_candidate,
                         "ocr_used": bool(ocr_text),
