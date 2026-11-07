@@ -170,7 +170,7 @@ async def run() -> bool:
                     duplicate_skipped += 1
                     continue
                 seen_asins.add(candidate["asin"])
-                candidate["source_post_url"] = f"https://t.me/amzon44/{message.id}"
+                candidate["source_post_url"] = f"https://t.me/offersegyptofficial/{message.id}"
                 candidate["source_date"] = message.date.isoformat() if message.date else None
                 candidate["ocr_used"] = bool(ocr_text)
                 candidates.append(candidate)
