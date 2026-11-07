@@ -118,7 +118,7 @@ def message_for(offer, url):
                 f" بدل {float(original_price):g} جنيه - خصم {discount}%"
             )
     else:
-        price_text = "💰 السعر غير محدد"
+        price_text = "💰 —"
 
     affiliate_url = str(url or "").strip()
     return f"🛍️ {title}\n{price_text}\n👇 {affiliate_url}"
