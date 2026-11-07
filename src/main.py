@@ -3,7 +3,7 @@ import json, os, sqlite3, math
 from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
-from .publisher import send_telegram, PhotoPreparationError
+from .publisher import send_telegram
 from .facebook_publisher import send_facebook, BufferPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,39 +93,35 @@ def _eligible_offers(offers, settings):
     return sorted(eligible, key=lambda pair: -offer_score(pair[0]))
 
 
+def _short_product_title(value, limit=56):
+    """Keep the product name compact enough for the three-line Telegram format."""
+    title = " ".join(str(value or "منتج مميز").split())
+    if len(title) <= limit:
+        return title
+    shortened = title[: limit - 1].rsplit(" ", 1)[0].strip()
+    return (shortened or title[: limit - 1]) + "…"
+
+
 def message_for(offer, url):
-    """Build a useful, factual Telegram ad without inventing product claims."""
-    title = str(offer.get("title") or "منتج مميز").strip()
-    description = str(offer.get("description") or "").strip()
-    features = offer.get("features") or []
-    features = [str(item).strip() for item in features if str(item).strip()]
+    """Build the compact three-line ad; Telegram supplies the link preview."""
+    title = _short_product_title(offer.get("short_title") or offer.get("title"))
     price = offer.get("price_egp")
     original_price = offer.get("original_price_egp")
-    if not _is_valid_price(price):
-        price = None
-    lines = [f"✨ {title}", ""]
-    if description:
-        lines.extend([description, ""])
-    if features:
-        lines.append("⭐ أبرز الاستخدامات والمميزات:")
-        lines.extend(f"• {item}" for item in features)
-        lines.append("")
-    if price is not None:
-        lines.append(f"💰 السعر: {price} جنيه")
-    if _has_real_discount(original_price, price):
-        lines.append(f"🏷️ السعر السابق: {original_price} جنيه")
-    if price is not None or original_price is not None:
-        lines.append("")
-    lines.extend(["🛍️ شوف التفاصيل واطلب من هنا:", url, ""])
-    hashtags = offer.get("hashtags") or ["عروض_القاهرة", "تسوق_أونلاين"]
-    clean_tags = []
-    for tag in hashtags:
-        tag = str(tag).strip().lstrip("#").replace(" ", "_")
-        if tag and tag not in clean_tags:
-            clean_tags.append(tag)
-    lines.append("#إعلان " + " ".join(f"#{tag}" for tag in clean_tags[:5]))
-    return "\n".join(lines)
 
+    if _is_valid_price(price):
+        price_text = f"💰 {float(price):g} جنيه"
+        if _has_real_discount(original_price, price):
+            discount = round(
+                (float(original_price) - float(price)) / float(original_price) * 100
+            )
+            price_text += (
+                f" بدل {float(original_price):g} جنيه - خصم {discount}%"
+            )
+    else:
+        price_text = "💰 —"
+
+    affiliate_url = str(url or "").strip()
+    return f"🛍️ {title}\n{price_text}\n👇 {affiliate_url}"
 
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -226,16 +222,15 @@ def run_once():
         candidate_pool = list(remaining)
         advanced_cycle = False
 
-        # If every unused offer has a broken image, advance one rotation cycle
-        # and try previously published offers (excluding failures from this run).
-        # This prevents one stale image URL from blocking all scheduled publishing.
+        # If the unused offer pool is exhausted, advance one rotation cycle
+        # and try previously published offers (excluding attempts from this run).
         while posted_count < max_posts:
             if not candidate_pool:
                 if advanced_cycle:
                     break
                 current_cycle += 1
                 advanced_cycle = True
-                print(f"START_CYCLE {current_cycle} after image failures")
+                print(f"START_CYCLE {current_cycle} after exhausting the current offer pool")
                 candidate_pool = [
                     item for item in eligible if item[0]["id"] not in attempted_ids
                 ]
@@ -244,14 +239,9 @@ def run_once():
 
             offer, url = candidate_pool.pop(0)
             attempted_ids.add(offer["id"])
-            try:
-                message_id = send_telegram(
-                    token, channel, message_for(offer, url),
-                    photo_url=offer.get("image_url") or None,
-                )
-            except PhotoPreparationError as exc:
-                print(f"SKIP {offer['id']}: image preparation failed; trying next offer: {exc}")
-                continue
+            message_id = send_telegram(
+                token, channel, message_for(offer, url)
+            )
             db.execute(
                 "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
                 (current_cycle, offer["id"], message_id),
