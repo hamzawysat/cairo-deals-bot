@@ -197,3 +197,22 @@ def test_candidate_uses_configured_source_channel():
         resolver=resolver,
     )
     assert candidate["source_channel"] == "@amzon44"
+
+
+def test_resolver_rejects_non_2xx_final_response():
+    class NotModified:
+        status_code = 304
+        headers = {}
+        def close(self):
+            pass
+    class Session:
+        def get(self, *args, **kwargs):
+            return NotModified()
+    diagnostics = {}
+    assert resolve_amazon_product_url(
+        "https://www.amazon.eg/dp/B0ABC12345",
+        session=Session(),
+        diagnostics=diagnostics,
+        host_resolver=PUBLIC_DNS,
+    ) is None
+    assert diagnostics["reason"] == "http_status_rejected"
