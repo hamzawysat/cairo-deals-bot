@@ -12,7 +12,7 @@ from telethon.sessions import StringSession
 from src.processor import build_amazon_affiliate_url, extract_single_asin
 from src.original_content import extract_egypt_price_text
 
-SOURCE_CHANNEL = "@amzon44"
+SOURCE_CHANNEL = "@offersegyptofficial"
 SAMPLE_LIMIT = 10
 PHOTO_DOWNLOAD_LIMIT = 5
 TRACKING_ID = "cairodeals-21"
