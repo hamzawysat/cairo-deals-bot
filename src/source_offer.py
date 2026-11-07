@@ -31,7 +31,9 @@ PRODUCT_NAME_SKIP = re.compile(
 
 
 _SOURCE_EGP_PRICE_RE = re.compile(
-    r"([0-9٠-٩۰-۹]+(?:[.,٫][0-9]{1,2})?)\s*"
+    # Accept grouped thousands (1,349 / 66,949) and optional decimal fractions.
+    r"((?:[0-9٠-٩۰-۹]{1,3}(?:,[0-9٠-٩۰-۹]{3})+|[0-9٠-٩۰-۹]+)"
+    r"(?:[.٫][0-9٠-٩۰-۹]{1,2})?)\s*"
     r"(?:جنيه(?:اً)?|جنيهات|جنية|ج\.?م\.?|EGP|L\.?E\.?|LE|ج)(?![\w])",
     re.IGNORECASE,
 )
@@ -53,7 +55,7 @@ def extract_source_price(text: str) -> tuple[str, str] | None:
         if not found:
             continue
         match = found[-1]
-        amount = match.group(1).replace("٫", ".").replace(",", ".")
+        amount = match.group(1).replace("٫", ".").replace(",", "")
         matches.append((0 if CURRENT_PRICE_LINE_RE.search(line) else 1, amount))
     if not matches:
         return None
@@ -242,7 +244,7 @@ def build_source_candidate(
         "asin": asin,
         "advertised_price": price,
         "currency": currency,
-        "price_source": "message_or_ocr_explicit_currency",
+        "price_source": "source_message_explicit_currency",
         "affiliate_url": affiliate_url,
         "caption_preview": (
             f"✨ عرض جديد من Cairo Deals\n\n"
