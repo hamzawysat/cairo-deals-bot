@@ -12,7 +12,7 @@ from src.original_content import extract_egypt_price_text
 from src.processor import build_amazon_affiliate_url
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
-OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\\bwas\\b", re.IGNORECASE)
+OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\bwas\b", re.IGNORECASE)
 CURRENT_PRICE_LINE_RE = re.compile(r"السعر الحالي|السعر بعد الخصم|السعر|الآن|current price|now", re.IGNORECASE)
 
 ALLOWED_HOSTS = {
@@ -22,10 +22,10 @@ ALLOWED_HOSTS = {
     "amzn.to", "amzn.eu", "a.co", "link.amazon",
     "amzlinks.in", "www.amzlinks.in",
 }
-URL_RE = re.compile(r"https?://[^\\s<>]+", re.IGNORECASE)
+URL_RE = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
 ASIN_RE = re.compile(r"^[A-Z0-9]{10}$")
 PRODUCT_NAME_SKIP = re.compile(
-    r"(?:السعر|جنيه|ج\\.م|EGP|\\bLE\\b|ريال|ر\\.س|اطلب|اشتر|الرابط|اضغط|خصم|عرض|amazon\\s*prime)",
+    r"(?:السعر|جنيه|ج\.م|EGP|\bLE\b|ريال|ر\.س|اطلب|اشتر|الرابط|اضغط|خصم|عرض|amazon\s*prime)",
     re.IGNORECASE,
 )
 
@@ -169,15 +169,15 @@ def resolve_amazon_product_url(
 def extract_product_name(message_text: str, ocr_text: str = "") -> str | None:
     """Take a descriptive source line; never invent a product identity."""
     candidates = []
-    for line in ((message_text or "") + "\\n" + (ocr_text or "")).splitlines():
-        line = re.sub(r"https?://\\S+", "", line)
-        line = re.sub(r"^[\\W_]+", "", line, flags=re.UNICODE)
-        line = re.sub(r"\\s+", " ", line).strip(" -|")
+    for line in ((message_text or "") + "\n" + (ocr_text or "")).splitlines():
+        line = re.sub(r"https?://\S+", "", line)
+        line = re.sub(r"^[\W_]+", "", line, flags=re.UNICODE)
+        line = re.sub(r"\s+", " ", line).strip(" -|")
         if not line or len(line) < 4 or len(line) > 120:
             continue
         if PRODUCT_NAME_SKIP.search(line):
             continue
-        if re.fullmatch(r"[\\d\\W_]+", line):
+        if re.fullmatch(r"[\d\W_]+", line):
             continue
         if line not in candidates:
             candidates.append(line)
@@ -200,7 +200,7 @@ def build_source_candidate(
     if len(asins) != 1:
         return None
     asin = next(iter(asins))
-    combined = "\\n".join(part for part in (message_text, ocr_text) if part)
+    combined = "\n".join(part for part in (message_text, ocr_text) if part)
     source_price = extract_source_price(combined)
     name = extract_product_name(message_text, ocr_text)
     if not name or not source_price:
@@ -218,8 +218,8 @@ def build_source_candidate(
         "price_source": "message_or_ocr_explicit_currency",
         "affiliate_url": affiliate_url,
         "caption_preview": (
-            f"🛍️ تفاصيل العرض\\n{name}\\n\\n{price_line}\\n"
-            "🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\\n\\n"
+            f"🛍️ تفاصيل العرض\n{name}\n\n{price_line}\n"
+            "🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\n\n"
             f"🔗 {affiliate_url}"
         ),
         "image_status": "source_image_review_only_not_cleared_for_republication",
