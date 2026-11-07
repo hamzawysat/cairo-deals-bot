@@ -77,8 +77,12 @@ def _public_dns_addresses(host: str) -> list[str]:
 
 
 def _host_is_public(host: str, host_resolver=None) -> bool:
-    addresses = (host_resolver or _public_dns_addresses)(host)
-    return bool(addresses)
+    try:
+        addresses = (host_resolver or _public_dns_addresses)(host)
+        parsed = [ipaddress.ip_address(str(address)) for address in addresses]
+        return bool(parsed) and all(address.is_global for address in parsed)
+    except (OSError, TypeError, ValueError):
+        return False
 
 
 def resolve_amazon_product_url(
