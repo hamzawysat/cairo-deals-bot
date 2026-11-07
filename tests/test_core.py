@@ -1,4 +1,4 @@
-from src.main import message_for, offer_score, rank_offers
+from src.main import message_for, offer_score, rank_offers, _target_eligible_offers
 from src.providers import build_affiliate_url, ProviderError
 from src import main as main_module
 
@@ -94,3 +94,21 @@ def test_dry_run_does_not_send_or_touch_database(tmp_path, monkeypatch, capsys):
     assert "database=UNCHANGED" in output
     assert "rotation=UNCHANGED" in output
     assert not database_path.exists()
+
+
+
+def test_targeted_manual_publish_selects_only_exact_offer():
+    jam = ({"id": "amazon-miro-strawberry-fig-jam-016"}, "https://example.com/jam")
+    other = ({"id": "other-offer"}, "https://example.com/other")
+    assert _target_eligible_offers([other, jam], "amazon-miro-strawberry-fig-jam-016") == [jam]
+
+
+def test_targeted_manual_publish_does_not_fall_back_to_another_offer():
+    other = ({"id": "other-offer"}, "https://example.com/other")
+    assert _target_eligible_offers([other], "amazon-miro-strawberry-fig-jam-016") == []
+
+
+def test_normal_publish_keeps_all_eligible_offers():
+    first = ({"id": "first"}, "https://example.com/1")
+    second = ({"id": "second"}, "https://example.com/2")
+    assert _target_eligible_offers([first, second], "") == [first, second]
