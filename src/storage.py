@@ -24,8 +24,11 @@ class SourceStore:
                     PRIMARY KEY (source_chat, source_message_id)
                 )
             """)
-            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_source_posts_asin_posted "
-                       "ON source_posts(asin) WHERE asin IS NOT NULL AND status = 'posted'")
+            db.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_source_posts_asin_active "
+                "ON source_posts(asin) WHERE asin IS NOT NULL "
+                "AND status IN ('processing', 'posted')"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path, timeout=15)
@@ -42,15 +45,18 @@ class SourceStore:
         return row is not None
 
     def claim(self, source_chat: str, message_id: int, asin: str | None) -> bool:
-        """Atomically claim a source message; a duplicate message cannot be processed twice."""
-        with self._connect() as db:
-            cursor = db.execute(
-                """INSERT OR IGNORE INTO source_posts
-                   (source_chat, source_message_id, asin, status)
-                   VALUES (?, ?, ?, 'processing')""",
-                (source_chat, message_id, asin),
-            )
-            return cursor.rowcount == 1
+        """Atomically claim a message and reserve its ASIN against concurrent duplicates."""
+        try:
+            with self._connect() as db:
+                cursor = db.execute(
+                    """INSERT OR IGNORE INTO source_posts
+                       (source_chat, source_message_id, asin, status)
+                       VALUES (?, ?, ?, 'processing')""",
+                    (source_chat, message_id, asin),
+                )
+                return cursor.rowcount == 1
+        except sqlite3.IntegrityError:
+            return False
 
     def mark_posted(
         self, source_chat: str, message_id: int,
