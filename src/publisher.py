@@ -9,12 +9,21 @@ class PublishError(RuntimeError):
     pass
 
 
+class PhotoPreparationError(PublishError):
+    """A product photo could not be downloaded or prepared; try another offer."""
+
+    pass
+
+
 def _prepare_full_frame_photo(photo_url: str, timeout: int) -> BytesIO:
     """Fit the complete source image inside a square canvas without cropping."""
-    response = requests.get(photo_url, timeout=timeout)
-    response.raise_for_status()
+    try:
+        response = requests.get(photo_url, timeout=timeout)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise PhotoPreparationError(f"Could not download product image: {exc}") from exc
     if len(response.content) > 10 * 1024 * 1024:
-        raise PublishError("Product image exceeds the 10 MB download limit")
+        raise PhotoPreparationError("Product image exceeds the 10 MB download limit")
 
     try:
         with Image.open(BytesIO(response.content)) as source:
@@ -29,7 +38,7 @@ def _prepare_full_frame_photo(photo_url: str, timeout: int) -> BytesIO:
             output.seek(0)
             return output
     except (OSError, ValueError) as exc:
-        raise PublishError(f"Could not prepare product image: {exc}") from exc
+        raise PhotoPreparationError(f"Could not prepare product image: {exc}") from exc
 
 
 def send_telegram(

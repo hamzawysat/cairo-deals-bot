@@ -3,7 +3,7 @@ import json, os, sqlite3, math
 from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
-from .publisher import send_telegram
+from .publisher import send_telegram, PhotoPreparationError
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.getenv("BOT_STATE_DB", ROOT / "data" / "state.sqlite3"))
@@ -200,8 +200,17 @@ def run_once():
 
         max_posts = max(1, int(settings.get("max_posts_per_run", 1)))
         posted_count = 0
-        for offer, url in remaining[:max_posts]:
-            message_id = send_telegram(token, channel, message_for(offer, url), photo_url=offer.get("image_url") or None)
+        for offer, url in remaining:
+            if posted_count >= max_posts:
+                break
+            try:
+                message_id = send_telegram(
+                    token, channel, message_for(offer, url),
+                    photo_url=offer.get("image_url") or None,
+                )
+            except PhotoPreparationError as exc:
+                print(f"SKIP {offer['id']}: image preparation failed; trying next offer: {exc}")
+                continue
             db.execute(
                 "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
                 (current_cycle, offer["id"], message_id),
