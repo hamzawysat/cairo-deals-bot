@@ -201,9 +201,28 @@ def run_once():
 
         max_posts = max(1, int(settings.get("max_posts_per_run", 1)))
         posted_count = 0
-        for offer, url in remaining:
-            if posted_count >= max_posts:
-                break
+        attempted_ids = set()
+        candidate_pool = list(remaining)
+        advanced_cycle = False
+
+        # If every unused offer has a broken image, advance one rotation cycle
+        # and try previously published offers (excluding failures from this run).
+        # This prevents one stale image URL from blocking all scheduled publishing.
+        while posted_count < max_posts:
+            if not candidate_pool:
+                if advanced_cycle:
+                    break
+                current_cycle += 1
+                advanced_cycle = True
+                print(f"START_CYCLE {current_cycle} after image failures")
+                candidate_pool = [
+                    item for item in eligible if item[0]["id"] not in attempted_ids
+                ]
+                if not candidate_pool:
+                    break
+
+            offer, url = candidate_pool.pop(0)
+            attempted_ids.add(offer["id"])
             try:
                 message_id = send_telegram(
                     token, channel, message_for(offer, url),
