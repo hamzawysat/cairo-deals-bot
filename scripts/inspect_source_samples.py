@@ -10,6 +10,7 @@ import pytesseract
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from src.processor import build_amazon_affiliate_url, extract_single_asin
+from src.original_content import extract_egypt_price_text
 
 SOURCE_CHANNEL = "@amzon44"
 SAMPLE_LIMIT = 10
@@ -65,6 +66,8 @@ async def inspect() -> bool:
         with tempfile.TemporaryDirectory(prefix="source-photo-check-") as temp_dir:
             async for message in client.iter_messages(source, limit=SAMPLE_LIMIT):
                 total += 1
+                body = message.message or ""
+                message_price = extract_egypt_price_text(body)
                 if message.photo:
                     photos += 1
                     if photo_attempts < PHOTO_DOWNLOAD_LIMIT:
@@ -120,6 +123,8 @@ async def inspect() -> bool:
                                 "status": "ok",
                                 "review_status": classify_ocr_sample(lines)[0],
                                 "review_reason": classify_ocr_sample(lines)[1],
+                                "advertised_price_candidate": message_price or extract_egypt_price_text("\\n".join(lines)),
+                                "price_source": "message_text" if message_price else ("photo_ocr" if extract_egypt_price_text("\\n".join(lines)) else None),
                             })
                         except Exception:
                             photo_failures += 1
@@ -138,7 +143,6 @@ async def inspect() -> bool:
                     documents += 1
                 else:
                     text_only += 1
-                body = message.message or ""
                 hidden_urls = []
                 for entity in message.entities or []:
                     hidden_url = getattr(entity, "url", None)
