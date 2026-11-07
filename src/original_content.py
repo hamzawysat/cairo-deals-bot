@@ -27,7 +27,7 @@ def extract_egypt_price_text(text: str) -> str | None:
         amount = match.group(1) if match else None
         if amount is None:
             match = PRICE_WITH_PREFIX_RE.search(line)
-            amount = match.group(2) if match else None
+            amount = match.group(1) if match else None
         if amount is None:
             continue
         amount = amount.replace("٫", ".").replace(",", ".")
