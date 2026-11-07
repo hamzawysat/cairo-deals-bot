@@ -3,7 +3,7 @@ import json, os, sqlite3, math
 from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
-from .publisher import send_telegram
+from .publisher import send_telegram, PhotoPreparationError
 from .facebook_publisher import send_facebook, BufferPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -273,9 +273,14 @@ def run_once():
 
             offer, url = candidate_pool.pop(0)
             attempted_ids.add(offer["id"])
-            message_id = send_telegram(
-                token, channel, message_for(offer, url),
-            )
+            try:
+                message_id = send_telegram(
+                    token, channel, message_for(offer, url),
+                    photo_url=offer.get("image_url") or None,
+                )
+            except PhotoPreparationError as exc:
+                print(f"SKIP {offer['id']}: image preparation failed; trying next offer: {exc}")
+                continue
             db.execute(
                 "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
                 (current_cycle, offer["id"], message_id),
