@@ -1,6 +1,12 @@
 name: Publish affiliate offer
 on:
   workflow_dispatch:
+    inputs:
+      offer_id:
+        description: "Optional exact offer ID to publish immediately"
+        required: false
+        type: string
+        default: ""
 permissions:
   contents: read
 concurrency:
@@ -23,6 +29,7 @@ jobs:
           restore-keys: cairo-deals-state-
       - run: pip install -r requirements.txt pytest
       - name: Discover permitted RSS candidates
+        if: ${{ inputs.offer_id == '' }}
         run: python -m src.discovery
       - name: Run tests
         run: python -m pytest -q
@@ -31,4 +38,5 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          TARGET_OFFER_ID: ${{ inputs.offer_id }}
         run: python -m src.main

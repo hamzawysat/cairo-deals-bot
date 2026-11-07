@@ -133,7 +133,15 @@ def init_db():
         db.execute("CREATE TABLE IF NOT EXISTS posted (offer_id TEXT PRIMARY KEY, message_id TEXT, posted_at TEXT DEFAULT CURRENT_TIMESTAMP)")
 
 
+def _target_eligible_offers(eligible, target_offer_id):
+    """When explicitly requested, restrict publishing to exactly one offer."""
+    if not target_offer_id:
+        return eligible
+    return [item for item in eligible if item[0].get("id") == target_offer_id]
+
+
 def run_once():
+    target_offer_id = os.getenv("TARGET_OFFER_ID", "").strip()
     settings = load_json(ROOT / "config" / "settings.json")
     offers_path = ROOT / "data" / "offers.json"
     offers = load_json(offers_path if offers_path.exists() else ROOT / "data" / "offers.example.json")
@@ -145,7 +153,10 @@ def run_once():
         print("SKIP: Telegram channel is disabled")
         return
 
-    eligible = _eligible_offers(offers, settings)
+    eligible = _target_eligible_offers(_eligible_offers(offers, settings), target_offer_id)
+    if target_offer_id and not eligible:
+        print(f"TARGET_OFFER_NOT_FOUND_OR_INELIGIBLE {target_offer_id}")
+        return
     if not eligible:
         print("NO_ELIGIBLE_OFFERS")
         return
@@ -173,10 +184,20 @@ def run_once():
             INSERT OR IGNORE INTO rotation_posts(cycle_no, offer_id, message_id, posted_at)
             SELECT 1, offer_id, message_id, posted_at FROM posted
         """)
+        if target_offer_id:
+            already_posted = db.execute(
+                "SELECT 1 FROM posted WHERE offer_id=? LIMIT 1", (target_offer_id,)
+            ).fetchone()
+            if already_posted:
+                print(f"ALREADY_POSTED {target_offer_id}; duplicate protection kept")
+                return
+
         interval = max(5, int(settings.get("interval_minutes", 120)))
         grace_seconds = max(0, int(settings.get("interval_grace_seconds", 60)))
         last = db.execute("SELECT MAX(posted_at) FROM rotation_posts").fetchone()[0]
-        if last:
+        # An explicitly targeted manual publish may run immediately; normal scheduled
+        # publishing continues to obey the configured interval.
+        if last and not target_offer_id:
             wait_seconds = _interval_wait_seconds(
                 last, datetime.now(timezone.utc), interval, grace_seconds
             )
