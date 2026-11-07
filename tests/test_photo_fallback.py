@@ -11,7 +11,7 @@ def test_run_once_publishes_text_without_uploading_product_photo(
         "interval_minutes": 5,
         "max_posts_per_run": 1,
         "channels": {"telegram": {"enabled": True}},
-        "stores": {},
+        "stores": {"amazon_eg": {"tracking_id": "cairodeals-21"}},
     }
     offers = [
         {
@@ -29,7 +29,7 @@ def test_run_once_publishes_text_without_uploading_product_photo(
     monkeypatch.setattr(
         main_module,
         "_eligible_offers",
-        lambda loaded, cfg: [(offers[0], "https://link.amazon/example")],
+        lambda loaded, cfg: [(offers[0], "https://www.amazon.eg/dp/B000000000")],
     )
     db_path = tmp_path / "state.sqlite3"
     monkeypatch.setattr(main_module, "DB_PATH", db_path)
@@ -54,7 +54,7 @@ def test_run_once_publishes_text_without_uploading_product_photo(
     assert message.splitlines() == [
         "🛍️ منتج بصورة",
         "💰 100 جنيه",
-        "👇 https://link.amazon/example",
+        "👇 https://www.amazon.eg/dp/B000000000?tag=cairodeals-21",
     ]
     with sqlite3.connect(db_path) as db:
         posted = db.execute(
