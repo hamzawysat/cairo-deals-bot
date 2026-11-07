@@ -43,10 +43,17 @@ def test_redirect_resolution_accepts_amazon_product_redirect():
         headers = {"Location": "https://www.amazon.eg/dp/B0ABC12345"}
         def close(self):
             pass
+    class FinalResponse:
+        status_code = 200
+        headers = {}
+        def close(self):
+            pass
     class Session:
         trust_env = True
+        calls = 0
         def get(self, *args, **kwargs):
-            return Response()
+            self.calls += 1
+            return Response() if self.calls == 1 else FinalResponse()
     result = resolve_amazon_product_url("https://amzn.to/abc", session=Session())
     assert result == ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
 
