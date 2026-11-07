@@ -181,6 +181,8 @@ async def run() -> bool:
         state_path.write_text(json.dumps({
             "message_ids": list((prior_message_ids | {item["source_message_id"] for item in candidates}))[-1000:],
             "asins": list((prior_asins | {item["asin"] for item in candidates}))[-1000:],
+            "published_message_ids": prior_state.get("published_message_ids", []),
+            "published_asins": prior_state.get("published_asins", []),
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         report = {
             "source_channel": SOURCE_CHANNEL,
