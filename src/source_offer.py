@@ -182,7 +182,7 @@ def build_source_candidate(
         else f"💰 السعر المذكور في إعلان المصدر: {price}\n⚠️ السعر بالريال السعودي ولم يتم تحويله للجنيه المصري."
     )
     return {
-        "source_channel": "@amzon44",
+        "source_channel": "@offersegyptofficial",
         "source_message_id": int(message_id),
         "product_name_source": name,
         "asin": asin,
