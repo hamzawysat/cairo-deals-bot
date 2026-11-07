@@ -3,7 +3,7 @@
   "interval_minutes": 5,
   "interval_grace_seconds": 60,
   "max_posts_per_run": 1,
-  "dry_run": false,
+  "dry_run": true,
   "stores": {
     "amazon_eg": {
       "enabled": true,
@@ -16,10 +16,10 @@
   },
   "channels": {
     "telegram": {
-      "enabled": true
+      "enabled": false
     },
     "facebook": {
-      "enabled": true,
+      "enabled": false,
       "channel_id": "6aee840de29c69a1718c67ff"
     }
   },
