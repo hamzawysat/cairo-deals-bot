@@ -5,6 +5,7 @@ from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
 from .publisher import send_telegram, PhotoPreparationError
 from .facebook_publisher import send_facebook, BufferPublishError
+from .product_availability import check_amazon_offer_availability, AVAILABLE
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.getenv("BOT_STATE_DB", ROOT / "data" / "state.sqlite3"))
@@ -223,6 +224,10 @@ def run_once():
 
             offer, url = candidate_pool.pop(0)
             attempted_ids.add(offer["id"])
+            availability, availability_detail = check_amazon_offer_availability(offer)
+            if availability != AVAILABLE:
+                print(f"SKIP {offer['id']}: Amazon availability {availability}; {availability_detail}")
+                continue
             try:
                 message_id = send_telegram(
                     token, channel, message_for(offer, url),
