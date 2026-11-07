@@ -8,6 +8,7 @@ from src.processor import (
     format_repost,
 )
 from src.storage import SourceStore
+from src.original_content import build_original_caption
 
 
 class ProcessorTests(unittest.TestCase):
@@ -51,6 +52,35 @@ class ProcessorTests(unittest.TestCase):
         self.assertIn("السعر 250 جنيه", caption)
         self.assertIn(url, caption)
         self.assertNotIn("tag=old", caption)
+
+
+    def test_original_caption_uses_only_verified_facts_and_tagged_link(self):
+        caption = build_original_caption(
+            "لمبة LED حمراء 5 ملم - 5 قطع",
+            "10.80 جنيه",
+            "https://www.amazon.eg/dp/B049WGppS?tag=cairodeals-21",
+            "عرض جامد جدًا! أسرعوا قبل انتهاء الفرصة",
+        )
+        self.assertIsNotNone(caption)
+        self.assertIn("لمبة LED حمراء 5 ملم - 5 قطع", caption)
+        self.assertIn("10.80 جنيه", caption)
+        self.assertIn("tag=cairodeals-21", caption)
+        self.assertNotIn("أسرعوا قبل انتهاء الفرصة", caption)
+
+    def test_original_caption_rejects_unverified_or_missing_facts(self):
+        self.assertIsNone(build_original_caption(
+            "", "10.80 جنيه",
+            "https://www.amazon.eg/dp/B049WGppS?tag=cairodeals-21",
+        ))
+        self.assertIsNone(build_original_caption(
+            "لمبة LED", "السعر غير معروف",
+            "https://www.amazon.eg/dp/B049WGppS?tag=cairodeals-21",
+        ))
+
+    def test_original_caption_rejects_noncanonical_or_untagged_links(self):
+        self.assertIsNone(build_original_caption(
+            "لمبة LED", "10.80 جنيه", "https://amazon.com/dp/B049WGppS"
+        ))
 
 
 class StorageTests(unittest.TestCase):
