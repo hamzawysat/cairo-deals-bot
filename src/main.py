@@ -93,7 +93,7 @@ def _eligible_offers(offers, settings):
     return sorted(eligible, key=lambda pair: -offer_score(pair[0]))
 
 
-def _short_product_title(value, limit=58):
+def _short_product_title(value, limit=56):
     """Keep the product name compact enough for the three-line Telegram format."""
     title = " ".join(str(value or "منتج مميز").split())
     if len(title) <= limit:
