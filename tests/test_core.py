@@ -23,28 +23,44 @@ def test_message_does_not_invent_price():
     assert "https://example.com" in text
 
 
-def test_message_includes_description_features_and_hashtags():
+def test_message_uses_exact_three_line_compact_template_and_short_link():
+    text = message_for({
+        "title": "مربى فراولة 800 جم + مربى تين 800 جم من ميرو",
+        "price_egp": 105,
+        "original_price_egp": 118,
+        "description": "يجب ألا يظهر هذا الوصف",
+        "features": ["يجب ألا تظهر المميزات"],
+        "hashtags": ["يجب ألا تظهر الوسوم"],
+    }, "https://link.amazon/B0iUJDVt8")
+    assert text == (
+        "🍓 مربى فراولة 800 جم + مربى تين 800 جم من ميرو\n"
+        "💰 105 جنيه بدل 118 جنيه - خصم 11%\n"
+        "👇 https://link.amazon/B0iUJDVt8"
+    )
+    assert "%D8" not in text
+    assert "pd_rd_w" not in text
+    assert "content-id" not in text
+    assert "linkId" not in text
+
+
+def test_message_keeps_original_affiliate_url_and_omits_long_copy():
     text = message_for({
         "title": "سلك توصيل",
-        "description": "للتوصيل في التجارب الإلكترونية.",
-        "features": ["توصيل Female إلى Male", "للمشروعات الإلكترونية"],
-        "hashtags": ["إلكترونيات", "#مشروعات"],
-        "price_egp": None,
-    }, "https://example.com/item")
-    assert "للتوصيل في التجارب الإلكترونية." in text
-    assert "• توصيل Female إلى Male" in text
-    assert "#إلكترونيات" in text
-    assert "https://example.com/item" in text
+        "price_egp": 90,
+        "description": "وصف طويل لا يجب إرساله",
+        "features": ["ميزة لا يجب إرسالها"],
+    }, "https://amzn.to/4jUDok9")
+    assert text.splitlines() == [
+        "🛍️ سلك توصيل",
+        "💰 90 جنيه",
+        "👇 https://amzn.to/4jUDok9",
+    ]
 
 
-def test_message_shows_price_only_when_provided():
-    text = message_for({
-        "title": "منتج",
-        "price_egp": 120,
-        "original_price_egp": 150,
-    }, "https://example.com")
-    assert "💰 السعر: 120 جنيه" in text
-    assert "🏷️ السعر السابق: 150 جنيه" in text
+def test_message_does_not_invent_price():
+    text = message_for({"title": "منتج", "price_egp": None}, "https://example.com")
+    assert "السعر" not in text
+    assert text.endswith("https://example.com")
 
 
 def test_offer_score_rewards_complete_verified_data():

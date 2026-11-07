@@ -3,7 +3,7 @@ import json, os, sqlite3, math
 from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
-from .publisher import send_telegram, PhotoPreparationError
+from .publisher import send_telegram
 from .facebook_publisher import send_facebook, BufferPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,37 +93,31 @@ def _eligible_offers(offers, settings):
     return sorted(eligible, key=lambda pair: -offer_score(pair[0]))
 
 
+def _format_price(value):
+    """Format EGP prices without unnecessary trailing decimal zeros."""
+    number = float(value)
+    return f"{number:,.2f}".rstrip("0").rstrip(".")
+
+
 def message_for(offer, url):
-    """Build a useful, factual Telegram ad without inventing product claims."""
+    """Build a compact three-line ad and leave the affiliate URL untouched."""
     title = str(offer.get("title") or "منتج مميز").strip()
-    description = str(offer.get("description") or "").strip()
-    features = offer.get("features") or []
-    features = [str(item).strip() for item in features if str(item).strip()]
+    emoji = "🍓" if "مربى" in title else "🛍️"
     price = offer.get("price_egp")
     original_price = offer.get("original_price_egp")
-    if not _is_valid_price(price):
-        price = None
-    lines = [f"✨ {title}", ""]
-    if description:
-        lines.extend([description, ""])
-    if features:
-        lines.append("⭐ أبرز الاستخدامات والمميزات:")
-        lines.extend(f"• {item}" for item in features)
-        lines.append("")
-    if price is not None:
-        lines.append(f"💰 السعر: {price} جنيه")
-    if _has_real_discount(original_price, price):
-        lines.append(f"🏷️ السعر السابق: {original_price} جنيه")
-    if price is not None or original_price is not None:
-        lines.append("")
-    lines.extend(["🛍️ شوف التفاصيل واطلب من هنا:", url, ""])
-    hashtags = offer.get("hashtags") or ["عروض_القاهرة", "تسوق_أونلاين"]
-    clean_tags = []
-    for tag in hashtags:
-        tag = str(tag).strip().lstrip("#").replace(" ", "_")
-        if tag and tag not in clean_tags:
-            clean_tags.append(tag)
-    lines.append("#إعلان " + " ".join(f"#{tag}" for tag in clean_tags[:5]))
+
+    lines = [f"{emoji} {title}"]
+    if _is_valid_price(price):
+        price_text = f"💰 {_format_price(price)} جنيه"
+        if _has_real_discount(original_price, price):
+            discount = round((1 - float(price) / float(original_price)) * 100)
+            price_text += (
+                f" بدل {_format_price(original_price)} جنيه"
+                f" - خصم {discount}%"
+            )
+        lines.append(price_text)
+
+    lines.append(f"👇 {url}")
     return "\n".join(lines)
 
 
@@ -247,11 +241,7 @@ def run_once():
             try:
                 message_id = send_telegram(
                     token, channel, message_for(offer, url),
-                    photo_url=offer.get("image_url") or None,
                 )
-            except PhotoPreparationError as exc:
-                print(f"SKIP {offer['id']}: image preparation failed; trying next offer: {exc}")
-                continue
             db.execute(
                 "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
                 (current_cycle, offer["id"], message_id),
