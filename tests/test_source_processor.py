@@ -31,6 +31,15 @@ class ProcessorTests(unittest.TestCase):
             "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21",
         )
 
+    def test_short_amazon_links_are_not_mistaken_for_verified_asins(self):
+        self.assertIsNone(extract_single_asin("https://amzn.to/example-short-link"))
+
+    def test_tracking_tag_is_always_added_to_egypt_product_url(self):
+        self.assertEqual(
+            build_amazon_affiliate_url("B0ABC12345", "cairodeals-21"),
+            "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21",
+        )
+
     def test_caption_preserves_source_facts_and_replaces_link(self):
         result = format_repost(
             "سماعة بلوتوث\nالسعر 250 جنيه\nhttps://amazon.eg/dp/B0ABC12345",
