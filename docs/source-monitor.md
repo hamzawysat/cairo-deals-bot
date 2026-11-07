@@ -1,33 +1,61 @@
-# Source monitor (experimental)
+# Source monitor and one-item Telegram publisher
 
-The source-monitor code is now maintained on `main` alongside the existing
-Cairo Deals bot. The workflow is a manual/read-only verification step; it does
-not replace, disable, or publish through the existing scheduled publisher.
+The source workflow reads `@amzon44`, resolves Amazon short links, and builds
+Arabic offer previews. It runs on a two-hour schedule and after pushes to
+`main`. The normal scheduled and push runs are read-only: they do not post to
+Telegram or Facebook.
 
-## Current safety boundary
+## Link resolution
 
-- The GitHub Actions check authenticates the Telegram user session, resolves
-  `@amzon44` and `@cairo_deals`, and reads at most ten recent source messages.
-- It downloads and validates up to three source photos for read-only OCR.
-- The check never sends, edits, forwards, or deletes Telegram messages.
-- Telegram credentials are read only from GitHub Actions secrets and are never printed.
-- Parsing accepts ASINs only from recognized Amazon hostnames and product paths.
-- OCR text alone is not accepted as verified product identity, price, or ASIN.
-- Original Arabic caption generation requires independently verified product facts
-  and a canonical Amazon Egypt URL carrying the configured tracking tag.
-- SQLite state is local to the runner unless a persistent storage service is added.
+- Accepts only HTTPS URLs from the explicit Amazon/short-link host allowlist.
+- Follows redirects manually (maximum eight) and checks every hop.
+- Rejects off-allowlist hosts, private/non-public DNS results, missing redirect
+  locations, failed HTTP responses, and destinations without one unambiguous ASIN.
+- Rebuilds the Egyptian affiliate URL using `cairodeals-21`; source tags are not reused.
+- Requires one ASIN and an explicit EGP price. Ambiguous products and other
+  currencies are rejected for review.
 
-## Manual connection check
+## Image reuse
 
-Run **Actions → Check source Telegram access → Run workflow** on the
-`main` branch. A successful run confirms account authorization and access to
-both channels. It does not publish anything.
+Photos downloaded from `@amzon44` are OCR evidence only. They are not copied
+into the preview or republished. The optional publisher reads
+`config/approved_product_images.json` and requires, per ASIN:
+- an HTTPS image URL on an approved Amazon image CDN;
+- `rights_confirmed: true`;
+- a non-empty `rights_source` identifying the permission or license.
 
-## Important deployment limitation
+The manifest is intentionally empty by default. Do not mark an image approved
+unless you actually have permission to reuse it.
 
-GitHub Actions jobs are short-lived. They are suitable for periodic inspection,
-not for a continuously connected Telegram listener. A live listener needs a
-separate long-running host and persistent storage. The current source monitor
-is not wired into an automatic source-to-publish loop. Do not enable live
-publishing until product matching, image rights, retry handling, persistent
-deduplication, and both destination paths have been tested and explicitly approved.
+Example entry (replace with a real, authorized image and permission record):
+
+```json
+{
+  "products": {
+    "B0XXXXXXXX": {
+      "url": "https://m.media-amazon.com/images/I/example.jpg",
+      "rights_confirmed": true,
+      "rights_source": "Written permission from the image owner, dated YYYY-MM-DD"
+    }
+  }
+}
+```
+
+## One-item publishing
+
+Use **Actions → Build source offer previews → Run workflow**. Keep
+`publish_one` unchecked for preview-only operation. Checking it opts into one
+Telegram post to `@cairo_deals`, but the job still stops unless the report
+contains a new candidate and the ASIN has an approved image manifest entry.
+The publisher never forwards or republishes the source-channel photo.
+
+The one-item action is separate from the existing scheduled product publisher.
+It does not change the existing offer cadence or its Facebook/Buffer flow.
+
+## State and operational limits
+
+GitHub Actions cache is used as best-effort deduplication between scheduled
+runs; it is not a transactional database and cannot guarantee exactly-once
+delivery after an interrupted network request. A permanent unattended listener
+requires a long-running host and durable database. No live post is performed
+by the normal workflow.
