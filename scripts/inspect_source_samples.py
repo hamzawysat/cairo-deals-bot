@@ -3,6 +3,7 @@
 from __future__ import annotations
 import asyncio, logging, os, sys, tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PIL import Image
 from telethon import TelegramClient
@@ -28,6 +29,8 @@ async def inspect() -> bool:
         source = await asyncio.wait_for(client.get_entity(SOURCE_CHANNEL), timeout=20)
         total = photos = videos = documents = text_only = 0
         with_asin = without_asin = affiliate_tag_verified = 0
+        entity_links = 0
+        link_hosts = {}
         photo_attempts = photo_verified = photo_failures = 0
         with tempfile.TemporaryDirectory(prefix="source-photo-check-") as temp_dir:
             async for message in client.iter_messages(source, limit=SAMPLE_LIMIT):
@@ -55,7 +58,17 @@ async def inspect() -> bool:
                     documents += 1
                 else:
                     text_only += 1
-                asin = extract_single_asin(message.message or "")
+                body = message.message or ""
+                hidden_urls = []
+                for entity in message.entities or []:
+                    hidden_url = getattr(entity, "url", None)
+                    if hidden_url:
+                        hidden_urls.append(hidden_url)
+                entity_links += len(hidden_urls)
+                for link in hidden_urls:
+                    host = (urlparse(link).hostname or "unknown").lower()
+                    link_hosts[host] = link_hosts.get(host, 0) + 1
+                asin = extract_single_asin(body + "\\n" + "\\n".join(hidden_urls))
                 if asin:
                     with_asin += 1
                     generated = build_amazon_affiliate_url(asin, TRACKING_ID)
@@ -68,6 +81,8 @@ async def inspect() -> bool:
         print(f"Photo posts: {photos}; video posts: {videos}; other documents: {documents}; text/other: {text_only}")
         print(f"Posts with one directly extractable Amazon ASIN: {with_asin}")
         print(f"Posts without one unambiguous directly extractable ASIN: {without_asin}")
+        print(f"Hidden Telegram URL entities inspected: {entity_links}")
+        print("Link host counts: " + (", ".join(f"{host}={count}" for host, count in sorted(link_hosts.items())) if link_hosts else "none"))
         print(f"Egypt affiliate tag {TRACKING_ID} verified on generated links: {affiliate_tag_verified}/{with_asin}")
         print(f"Photo files downloaded and validated locally: {photo_verified}/{photo_attempts}")
         print(f"Photo validation failures: {photo_failures}")
