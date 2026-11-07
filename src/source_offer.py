@@ -44,6 +44,7 @@ ALLOWED_HOSTS = {
     "amazon.com", "www.amazon.com", "m.amazon.com",
     "amazon.sa", "www.amazon.sa", "m.amazon.sa",
     "amzn.to", "amzn.eu", "a.co", "link.amazon",
+    "amzlinks.in", "www.amzlinks.in",
 }
 URL_RE = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
 ASIN_RE = re.compile(r"^[A-Z0-9]{10}$")
