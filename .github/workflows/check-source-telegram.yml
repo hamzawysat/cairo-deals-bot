@@ -1,6 +1,9 @@
 name: Check source Telegram access
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - source-monitor
 permissions:
   contents: read
 concurrency:
