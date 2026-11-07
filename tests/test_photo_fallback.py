@@ -16,6 +16,7 @@ def test_run_once_publishes_text_without_uploading_product_photo(
     offers = [
         {
             "id": "offer-with-image-url",
+            "store": "amazon_eg",
             "title": "منتج بصورة",
             "price_egp": 100,
             "image_url": "https://images.example/product.jpg",
