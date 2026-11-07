@@ -69,6 +69,10 @@ async def run() -> bool:
         prior_state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
     except (OSError, ValueError):
         prior_state = {}
+
+    # Duplicate IDs and ASINs from another source must never suppress this source.
+    if prior_state.get("source_channel") != SOURCE_CHANNEL:
+        prior_state = {}
     prior_message_ids = {int(value) for value in prior_state.get("message_ids", [])}
     prior_asins = {str(value).upper() for value in prior_state.get("asins", [])}
     duplicate_skipped = 0
@@ -107,12 +111,14 @@ async def run() -> bool:
                 urls = extract_urls(body, entity_urls)
                 resolution_cache = {}
                 resolution_diagnostics = {}
+
                 def cached_resolver(url):
                     if url not in resolution_cache:
                         details = {}
                         resolution_cache[url] = resolve_amazon_product_url(url, diagnostics=details)
                         resolution_diagnostics[url] = details
                     return resolution_cache[url]
+
                 try:
                     candidate = build_source_candidate(
                         message_id=message.id,
@@ -178,6 +184,7 @@ async def run() -> bool:
         output = Path("artifacts/source-offer-previews.json")
         output.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text(json.dumps({
+            "source_channel": SOURCE_CHANNEL,
             "message_ids": list((prior_message_ids | {item["source_message_id"] for item in candidates}))[-1000:],
             "asins": list((prior_asins | {item["asin"] for item in candidates}))[-1000:],
         }, ensure_ascii=False, indent=2), encoding="utf-8")
