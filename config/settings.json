@@ -19,7 +19,7 @@
       "enabled": true
     },
     "facebook": {
-      "enabled": false,
+      "enabled": true,
       "channel_id": "6aee840de29c69a1718c67ff"
     }
   },
