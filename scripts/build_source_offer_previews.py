@@ -17,7 +17,14 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.source_offer import build_source_candidate
+from src.source_offer import (
+    build_source_candidate,
+    extract_product_name,
+    extract_urls,
+    resolve_amazon_product_url,
+)
+from src.original_content import extract_egypt_price_text
+from urllib.parse import urlparse
 
 SOURCE_CHANNEL = "@amzon44"
 POST_LIMIT = 30
@@ -66,6 +73,7 @@ async def run() -> bool:
     prior_asins = {str(value).upper() for value in prior_state.get("asins", [])}
     duplicate_skipped = 0
     rejected = {"no_resolved_asin_or_ambiguous": 0, "missing_name_or_egp_price": 0, "photo_ocr_failed": 0}
+    rejection_details = []
     photo_count = 0
     try:
         await asyncio.wait_for(client.connect(), timeout=25)
@@ -96,6 +104,12 @@ async def run() -> bool:
                     except Exception:
                         rejected["photo_ocr_failed"] += 1
 
+                urls = extract_urls(body, entity_urls)
+                resolution_cache = {}
+                def cached_resolver(url):
+                    if url not in resolution_cache:
+                        resolution_cache[url] = resolve_amazon_product_url(url)
+                    return resolution_cache[url]
                 try:
                     candidate = build_source_candidate(
                         message_id=message.id,
@@ -103,14 +117,46 @@ async def run() -> bool:
                         ocr_text=ocr_text,
                         entity_urls=entity_urls,
                         tracking_id=TRACKING_ID,
+                        resolver=cached_resolver,
                     )
                 except Exception:
                     candidate = None
                 if candidate is None:
-                    if not any(re.search(r"https?://", value) for value in [body, *entity_urls]):
+                    combined_text = body + "\\n" + ocr_text
+                    resolved_asins = sorted({
+                        value[0] for value in resolution_cache.values() if value
+                    })
+                    name_candidate = extract_product_name(body, ocr_text)
+                    price_candidate = extract_egypt_price_text(combined_text)
+                    if not urls or not resolved_asins:
+                        reason = "no_resolved_amazon_product_link"
                         rejected["no_resolved_asin_or_ambiguous"] += 1
-                    else:
+                    elif len(resolved_asins) != 1:
+                        reason = "multiple_product_asins"
+                        rejected["no_resolved_asin_or_ambiguous"] += 1
+                    elif not name_candidate:
+                        reason = "missing_product_name"
                         rejected["missing_name_or_egp_price"] += 1
+                    elif not price_candidate:
+                        reason = "missing_explicit_egp_price"
+                        rejected["missing_name_or_egp_price"] += 1
+                    else:
+                        reason = "preview_builder_rejected_candidate"
+                        rejected["missing_name_or_egp_price"] += 1
+                    rejection_details.append({
+                        "message_id": message.id,
+                        "reason": reason,
+                        "url_hosts": sorted({
+                            (urlparse(url).hostname or "unknown").lower() for url in urls
+                        }),
+                        "url_count": len(urls),
+                        "resolved_asins": resolved_asins,
+                        "name_candidate": name_candidate,
+                        "egp_price_candidate": price_candidate,
+                        "ocr_used": bool(ocr_text),
+                        "ocr_excerpt": ocr_text[:350] if ocr_text else "",
+                        "message_excerpt": body[:350],
+                    })
                     continue
                 if (
                     candidate["asin"] in seen_asins
@@ -138,6 +184,7 @@ async def run() -> bool:
             "candidate_count": len(candidates),
             "duplicate_candidates_skipped": duplicate_skipped,
             "rejected_counts": rejected,
+            "rejections": rejection_details,
             "candidates": candidates,
             "publishing_performed": False,
             "destination_channels_touched": [],
