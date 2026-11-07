@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock, patch
 
 from src.publisher import send_telegram
@@ -19,5 +20,8 @@ def test_telegram_uses_link_preview_instead_of_uploading_product_photo(mock_post
     assert message_id == "456"
     args, kwargs = mock_post.call_args
     assert args[0].endswith("/sendMessage")
-    assert kwargs["data"]["disable_web_page_preview"] is False
+    assert json.loads(kwargs["data"]["link_preview_options"]) == {
+        "prefer_small_media": True,
+        "show_above_text": False,
+    }
     assert "files" not in kwargs
