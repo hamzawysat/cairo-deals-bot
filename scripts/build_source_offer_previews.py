@@ -56,6 +56,14 @@ async def run() -> bool:
     candidates = []
     seen_messages = set()
     seen_asins = set()
+    state_path = Path("artifacts/source-offer-state.json")
+    try:
+        prior_state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
+    except (OSError, ValueError):
+        prior_state = {}
+    prior_message_ids = {int(value) for value in prior_state.get("message_ids", [])}
+    prior_asins = {str(value).upper() for value in prior_state.get("asins", [])}
+    duplicate_skipped = 0
     rejected = {"no_resolved_asin_or_ambiguous": 0, "missing_name_or_egp_price": 0, "photo_ocr_failed": 0}
     photo_count = 0
     try:
@@ -103,7 +111,12 @@ async def run() -> bool:
                     else:
                         rejected["missing_name_or_egp_price"] += 1
                     continue
-                if candidate["asin"] in seen_asins:
+                if (
+                    candidate["asin"] in seen_asins
+                    or candidate["asin"] in prior_asins
+                    or message.id in prior_message_ids
+                ):
+                    duplicate_skipped += 1
                     continue
                 seen_asins.add(candidate["asin"])
                 candidate["source_post_url"] = f"https://t.me/amzon44/{message.id}"
@@ -113,11 +126,16 @@ async def run() -> bool:
 
         output = Path("artifacts/source-offer-previews.json")
         output.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps({
+            "message_ids": list((prior_message_ids | {item["source_message_id"] for item in candidates}))[-1000:],
+            "asins": list((prior_asins | {item["asin"] for item in candidates}))[-1000:],
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
         report = {
             "source_channel": SOURCE_CHANNEL,
             "posts_scanned": len(seen_messages),
             "photos_ocr_attempted": photo_count,
             "candidate_count": len(candidates),
+            "duplicate_candidates_skipped": duplicate_skipped,
             "rejected_counts": rejected,
             "candidates": candidates,
             "publishing_performed": False,
