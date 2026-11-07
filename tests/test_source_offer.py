@@ -230,3 +230,22 @@ def test_source_caption_uses_cairo_deals_format_and_tagged_product_link():
     assert "💰 السعر المعلن: 10.80 جنيه" in caption
     assert "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21" in caption
     assert "تابعنا على جميع منصات التواصل" not in caption
+
+
+def test_source_price_supports_short_egyptian_currency_and_uses_post_text():
+    assert extract_source_price("تكييف فريش بسعر15999ج\\nتابعنا على جميع منصات التواصل") == ("15999 جنيه", "EGP")
+    assert extract_source_price("مضخة مياه بسعر75ج") == ("75 جنيه", "EGP")
+    assert extract_source_price("طقم أكواب 157ج") == ("157 جنيه", "EGP")
+
+
+def test_product_name_skips_social_cta_and_prefers_message_text():
+    assert extract_product_name(
+        "تابعنا على جميع منصات التواصل:\\nطقم أكواب ماء 6 قطع بسعر 157ج"
+    ) == "طقم أكواب ماء 6 قطع بسعر 157ج"
+
+
+def test_product_name_does_not_use_social_cta_from_ocr():
+    assert extract_product_name(
+        "https://link.amazon/abc",
+        "تابعنا على جميع منصات التواصل:\\nقناتنا على واتساب"
+    ) is None
