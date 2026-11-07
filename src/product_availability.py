@@ -62,7 +62,7 @@ def classify_amazon_product_page(html):
             return result
 
     text = re.sub(r"<[^>]+>", " ", html or "")
-    text = re.sub(r"\\s+", " ", text).lower()
+    text = re.sub(r"\s+", " ", text).lower()
     if any(marker in text for marker in _UNAVAILABLE_MARKERS):
         return UNAVAILABLE
     if any(marker in text for marker in _AVAILABLE_MARKERS):
