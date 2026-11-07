@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only inspection of source posts, photos, OCR text, and affiliate-tag generation."""
 from __future__ import annotations
-import asyncio, logging, os, re, sys, tempfile
+import asyncio, json, logging, os, re, sys, tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -45,6 +45,7 @@ async def inspect() -> bool:
         link_hosts = {}
         photo_attempts = photo_verified = photo_failures = ocr_successes = 0
         ocr_lines_total = 0
+        photo_reports = []
         with tempfile.TemporaryDirectory(prefix="source-photo-check-") as temp_dir:
             async for message in client.iter_messages(source, limit=SAMPLE_LIMIT):
                 total += 1
@@ -96,8 +97,20 @@ async def inspect() -> bool:
                                     print(f"  {line}")
                             else:
                                 print(f"OCR sample {photo_attempts}: no readable text detected.")
+                            photo_reports.append({
+                                "message_id": message.id,
+                                "date": message.date.isoformat() if message.date else None,
+                                "ocr_lines": lines,
+                                "status": "ok",
+                            })
                         except Exception:
                             photo_failures += 1
+                            photo_reports.append({
+                                "message_id": message.id,
+                                "date": message.date.isoformat() if message.date else None,
+                                "ocr_lines": [],
+                                "status": "ocr_or_download_failed",
+                            })
                             print(f"Photo/OCR sample {photo_attempts}: validation or OCR failed.")
                 elif message.video:
                     videos += 1
@@ -123,6 +136,20 @@ async def inspect() -> bool:
                         affiliate_tag_verified += 1
                 else:
                     without_asin += 1
+        report_path = Path("artifacts/source-inspection.json")
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps({
+                "source_channel": SOURCE_CHANNEL,
+                "recent_posts_inspected": total,
+                "photo_samples": photo_reports,
+                "direct_asin_count": with_asin,
+                "tracking_id": TRACKING_ID,
+                "publishing_performed": False,
+            }, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print("Structured OCR report saved to artifacts/source-inspection.json.")
         print("READ-ONLY SOURCE INSPECTION PASSED.")
         print(f"Recent posts inspected: {total}")
         print(f"Photo posts: {photos}; video posts: {videos}; other documents: {documents}; text/other: {text_only}")

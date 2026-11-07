@@ -34,6 +34,14 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
         run: python scripts/inspect_source_samples.py
+      - name: Upload read-only OCR report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-inspection-report
+          path: artifacts/source-inspection.json
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Verify account and channel access without publishing
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
