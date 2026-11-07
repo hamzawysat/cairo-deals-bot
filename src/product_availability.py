@@ -49,7 +49,7 @@ def _jsonld_availability(value):
 def classify_amazon_product_page(html):
     """Classify only explicit availability signals; ambiguous pages stay UNKNOWN."""
     scripts = re.findall(
-        r'<script[^>]+type=["\\']application/ld\\+json["\\'][^>]*>(.*?)</script>',
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
         html or "",
         flags=re.I | re.S,
     )
