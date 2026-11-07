@@ -26,7 +26,7 @@ from src.source_offer import (
 from src.original_content import extract_egypt_price_text
 from urllib.parse import urlparse
 
-SOURCE_CHANNEL = "@amzon44"
+SOURCE_CHANNEL = "@offersegyptofficial"
 POST_LIMIT = 30
 PHOTO_LIMIT = 10
 TRACKING_ID = "cairodeals-21"
