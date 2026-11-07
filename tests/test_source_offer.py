@@ -169,7 +169,7 @@ def test_candidate_rejects_missing_price_or_ambiguous_asins():
 
 def test_sar_source_price_is_rejected():
     assert extract_source_price(
-        "السعر السابق 21 ريال\\nالسعر الحالي 11 ريال"
+        "السعر السابق 21 ريال\nالسعر الحالي 11 ريال"
     ) is None
 
 
@@ -178,9 +178,9 @@ def test_candidate_rejects_sar_even_with_valid_amazon_product_link():
     candidate = build_source_candidate(
         message_id=90,
         message_text=(
-            "منظف مرحاض جيف مضاد للبكتيريا 750 مل\\n"
-            "السعر السابق 21 ريال\\n"
-            "السعر الحالي 11 ريال\\n"
+            "منظف مرحاض جيف مضاد للبكتيريا 750 مل\n"
+            "السعر السابق 21 ريال\n"
+            "السعر الحالي 11 ريال\n"
             "https://link.amazon/B0short12"
         ),
         resolver=resolver,
@@ -221,7 +221,7 @@ def test_source_caption_uses_cairo_deals_format_and_tagged_product_link():
     resolver = lambda url: ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
     candidate = build_source_candidate(
         message_id=501,
-        message_text="لمبة LED حمراء 5 ملم - 5 قطع\\nالسعر 10.80 جنيه\\nhttps://amzn.to/item",
+        message_text="لمبة LED حمراء 5 ملم - 5 قطع\nالسعر 10.80 جنيه\nhttps://amzn.to/item",
         resolver=resolver,
     )
     caption = candidate["caption_preview"]

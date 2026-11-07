@@ -221,11 +221,11 @@ def build_source_candidate(
         "price_source": "message_or_ocr_explicit_currency",
         "affiliate_url": affiliate_url,
         "caption_preview": (
-            f"✨ عرض جديد من Cairo Deals\\n\\n"
-            f"📦 {name}\\n\\n"
-            f"💰 السعر المعلن: {price}\\n\\n"
-            "🛒 تفاصيل المنتج والشراء من هنا:\\n"
-            f"{affiliate_url}\\n\\n"
+            f"✨ عرض جديد من Cairo Deals\n\n"
+            f"📦 {name}\n\n"
+            f"💰 السعر المعلن: {price}\n\n"
+            "🛒 تفاصيل المنتج والشراء من هنا:\n"
+            f"{affiliate_url}\n\n"
             "قد يتغير السعر أو التوافر لدى البائع."
         ),
         "image_status": "source_image_review_only_not_cleared_for_republication",
