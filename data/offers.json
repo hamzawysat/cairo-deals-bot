@@ -2,7 +2,7 @@
   {
     "id": "amazon-jumper-wire-female-to-male-001",
     "store": "amazon_eg",
-    "title": "Female to Male Jumper Wire",
+    "title": "أسلاك توصيل إلكترونية من أنثى إلى ذكر",
     "search_terms": "Female to Male Jumper Wire",
     "price_egp": 90,
     "affiliate_url": "https://amzn.to/4jUDok9",
@@ -10,7 +10,7 @@
     "enabled": true,
     "description": "أسلاك توصيل إلكترونية تُستخدم لربط المكونات في التجارب والمشروعات الإلكترونية.",
     "features": [
-      "توصيل من Female إلى Male",
+      "توصيل من طرف أنثى إلى طرف ذكر",
       "مناسبة لتوصيلات وتجارب الدوائر الإلكترونية"
     ],
     "hashtags": [
@@ -22,18 +22,18 @@
   {
     "id": "amazon-redmi-15c-8-256-002",
     "store": "amazon_eg",
-    "title": "Xiaomi Redmi 15C 8GB RAM 256GB",
+    "title": "شاومي ريدمي 15 سي – ذاكرة 8 جيجابايت ومساحة 256 جيجابايت",
     "search_terms": "Xiaomi Redmi 15C 8GB 256GB",
     "price_egp": 12500,
     "affiliate_url": "https://amzn.to/4zOglNb",
     "image_url": "https://bf1af2.akinoncloudcdn.com/products/2025/09/08/611790/14a5e1d7-4aa6-4d5c-aa6c-759169173f18_size3840_cropCenter.jpg",
     "enabled": true,
-    "description": "موبايل شاومي Redmi 15C بذاكرة 8 جيجابايت RAM وسعة تخزين 256 جيجابايت، وشاشة كبيرة 6.9 بوصة بمعدل تحديث 120Hz.",
+    "description": "هاتف شاومي ريدمي 15 سي بذاكرة عشوائية 8 جيجابايت وسعة تخزين 256 جيجابايت، وشاشة كبيرة 6.9 بوصة بمعدل تحديث 120 هرتز.",
     "features": [
-      "معالج MediaTek Helio G81 Ultra",
-      "كاميرا رئيسية 50MP",
-      "بطارية 6000mAh",
-      "يدعم شبكات 4G وشريحتين"
+      "معالج ميدياتك هيليو جي 81 ألترا",
+      "كاميرا رئيسية بدقة 50 ميجابكسل",
+      "بطارية بسعة 6000 مللي أمبير",
+      "يدعم شبكات الجيل الرابع وشريحتي اتصال"
     ],
     "hashtags": [
       "شاومي",
@@ -44,17 +44,17 @@
   {
     "id": "amazon-redragon-gs522-speakers-003",
     "store": "amazon_eg",
-    "title": "Redragon GS522 Cipher RGB Speakers",
+    "title": "سماعات ريدراجون جي إس 522 للكمبيوتر بإضاءة ملونة",
     "search_terms": "Redragon GS522 Cipher RGB Computer Speakers",
     "price_egp": 1300,
     "affiliate_url": "https://amzn.to/4sK21Cw",
     "image_url": "https://cdn.awsli.com.br/2500x2500/1318/1318167/produto/318877037/gs522--2--0im1zpyt55.jpg",
     "enabled": true,
-    "description": "سماعات كمبيوتر Redragon GS522 بصوت ستيريو 2.0 وإضاءة RGB، مناسبة للكمبيوتر واللابتوب.",
+    "description": "سماعات كمبيوتر ريدراجون جي إس 522 بصوت ستيريو ثنائي القناة وإضاءة ملونة، مناسبة للكمبيوتر واللابتوب.",
     "features": [
-      "قدرة صوتية 5 واط × 2",
-      "ستة أوضاع لإضاءة RGB",
-      "توصيل USB للطاقة وAUX ‏3.5 مم للصوت",
+      "قدرة صوتية 5 واط لكل سماعة",
+      "ستة أوضاع للإضاءة الملونة",
+      "توصيل يو إس بي للطاقة ومدخل صوت 3.5 مم",
       "تحكم باللمس في الإضاءة"
     ],
     "hashtags": [
@@ -66,7 +66,7 @@
   {
     "id": "amazon-mini-400-point-breadboard-004",
     "store": "amazon_eg",
-    "title": "Mini 400 Points Solderless Breadboard",
+    "title": "لوحة تجارب إلكترونية صغيرة 400 نقطة بدون لحام",
     "search_terms": "Mini 400 Points Solderless Breadboard",
     "price_egp": 75,
     "affiliate_url": "https://amzn.to/48ljJD7",
@@ -80,23 +80,23 @@
     ],
     "hashtags": [
       "إلكترونيات",
-      "Breadboard",
+      "لوحة_تجارب",
       "مشروعات_إلكترونية"
     ]
   },
   {
     "id": "amazon-multi-office-a4-paper-005",
     "store": "amazon_eg",
-    "title": "Multi Office A4 Copy Paper 80gsm - 500 Sheets",
+    "title": "ورق تصوير وطباعة متعدد الاستخدامات مقاس إيه 4 – 500 ورقة",
     "search_terms": "Multi Office A4 Copy Paper 80gsm 500 Sheets",
     "price_egp": 189,
     "affiliate_url": "https://link.amazon/B07GDrbNS",
     "image_url": "",
     "enabled": true,
-    "description": "ورق تصوير ونسخ Multi Office مقاس A4 بوزن 80 جم/م²، العبوة تحتوي على 500 ورقة، مناسب للطباعة والاستخدام المكتبي.",
+    "description": "ورق تصوير ونسخ متعدد الاستخدامات مقاس إيه 4 بوزن 80 جرامًا للمتر المربع، العبوة تحتوي على 500 ورقة، مناسب للطباعة والاستخدام المكتبي.",
     "features": [
-      "مقاس A4",
-      "وزن 80 جم/م²",
+      "مقاس إيه 4",
+      "وزن 80 جرامًا للمتر المربع",
       "500 ورقة في العبوة",
       "مناسب للطابعات وآلات التصوير والاستخدام المكتبي"
     ],
@@ -109,23 +109,23 @@
   {
     "id": "amazon-brother-dcp-t530dw-006",
     "store": "amazon_eg",
-    "title": "Brother DCP-T530DW Wireless Ink Tank All-in-One Printer",
+    "title": "طابعة براذر دي سي بي تي 530 دي دبليو بخزان حبر واتصال لاسلكي",
     "search_terms": "Brother DCP-T530DW Wireless Ink Tank Printer Print Scan Copy Duplex",
     "price_egp": 8499,
     "affiliate_url": "https://link.amazon/B01UgB2OW",
     "image_url": "https://www.brother.ae/-/media/fb20c7dd66dd4cb596d89a0f057def62.png?as=0&h=454&hash=23D55D29A0302D3C6363C3604E6ED921&rev=087a1d5634314fc0a6affa1eb5dd0042&w=454",
     "enabled": true,
-    "description": "طابعة Brother DCP-T530DW بخزان حبر مدمج، تجمع الطباعة والنسخ والمسح الضوئي مع الاتصال اللاسلكي والطباعة التلقائية على الوجهين.",
+    "description": "طابعة براذر دي سي بي تي 530 دي دبليو بخزان حبر مدمج، تجمع الطباعة والنسخ والمسح الضوئي مع الاتصال اللاسلكي والطباعة التلقائية على الوجهين.",
     "features": [
       "طباعة ونسخ ومسح ضوئي",
-      "اتصال Wi-Fi وWi-Fi Direct وUSB 2.0",
-      "طباعة تلقائية على الوجهين حتى مقاس A4",
-      "سرعة تصل إلى 16 صورة/دقيقة للأسود و9 صور/دقيقة للألوان",
+      "اتصال لاسلكي وواي فاي مباشر وتوصيل يو إس بي 2.0",
+      "طباعة تلقائية على الوجهين حتى مقاس إيه 4",
+      "سرعة تصل إلى 16 صورة في الدقيقة للأسود و9 صور في الدقيقة للألوان",
       "درج ورق بسعة 150 ورقة",
-      "زجاجات الحبر المرفقة تكفي حتى 7,500 صفحة أسود و5,000 صفحة ألوان وفق معيار الشركة"
+      "زجاجات الحبر المرفقة تكفي حتى 7500 صفحة أسود و5000 صفحة ألوان وفق معيار الشركة"
     ],
     "hashtags": [
-      "Brother",
+      "براذر",
       "طابعات",
       "مستلزمات_مكتبية",
       "عروض_11_11"
@@ -134,23 +134,23 @@
   {
     "id": "amazon-golon-rx3050-radio-007",
     "store": "amazon_eg",
-    "title": "Golon RX-3050 Portable AM/FM/SW 9-Band Radio - Silver",
+    "title": "راديو جولون آر إكس 3050 محمول – فضي",
     "search_terms": "Golon RX-3050 Portable Radio AM FM SW 9 Bands Silver Rechargeable",
     "price_egp": 885.6,
     "affiliate_url": "https://www.amazon.eg/dp/B0DR976WTN?ie=UTF8&pd_rd_plhdr=t&aref=MGyCbogqC2&th=1&linkCode=sl2&tag=cairodeals-21&linkId=5fd8df16c8fc94f56f955481864ece38&ref_=as_li_ss_tl_btn_assoc_p-other_o-2_srctok-6f510d5c16f63b0f_ht-t&ascsubtag=srctok-6f510d5c16f63b0f&btn_type=ss&btn_ref=srctok-6f510d5c16f63b0f",
     "image_url": "https://optitrade.dp.ua/image/catalog/1_china/raznoe/radio/63946/63946%281%29.jpg",
     "enabled": true,
-    "description": "راديو محمول Golon RX-3050 باللون الفضي، يستقبل موجات FM وAM و7 نطاقات للموجات القصيرة SW، مع بطارية قابلة لإعادة الشحن ومكبر صوت مدمج وهوائي قضيب.",
+    "description": "راديو محمول من جولون باللون الفضي، يستقبل موجات إف إم وإيه إم وسبعة نطاقات للموجات القصيرة، مع بطارية قابلة لإعادة الشحن ومكبر صوت مدمج وهوائي.",
     "features": [
-      "استقبال 9 نطاقات: FM وAM وSW1 إلى SW7",
+      "استقبال 9 نطاقات: إف إم وإيه إم وسبعة نطاقات للموجات القصيرة",
       "بطارية قابلة لإعادة الشحن",
-      "هوائي قضيب لتحسين استقبال الإشارة",
+      "هوائي لتحسين استقبال الإشارة",
       "مكبر صوت مدمج",
       "تصميم محمول مناسب للمنزل والسفر والاستخدام الخارجي"
     ],
     "hashtags": [
       "راديو",
-      "Golon",
+      "جولون",
       "إلكترونيات",
       "عروض_11_11"
     ]
@@ -158,17 +158,17 @@
   {
     "id": "amazon-heated-blanket-double-008",
     "store": "amazon_eg",
-    "title": "Generic Electric Heated Blanket, Soft Wool with Sherpa Blanket, Blue, Double Size, 2.20 x 2.40 m",
+    "title": "بطانية كهربائية حرارية مزدوجة زرقاء مقاس 220 × 240 سم",
     "search_terms": "Generic Electric Heated Blanket Blue Double 220x240 cm Soft Wool Sherpa",
     "price_egp": 1268.25,
     "affiliate_url": "https://link.amazon/B0gQfpT3Q",
     "image_url": "https://m.media-amazon.com/images/I/61AQoGYYaVL._AC_SL1184_.jpg",
     "enabled": true,
-    "description": "بطانية حرارية كهربائية مقاس مزدوج 220 × 240 سم، باللون الأزرق، بخامة صوف ناعم مع شيربا مايكروفايبر. السعر المسجل 1,268.25 جنيه وفق صورة صفحة المنتج التي راجعها المستخدم؛ السعر والتوافر قابلان للتغيير.",
+    "description": "بطانية حرارية كهربائية مقاس مزدوج 220 × 240 سم، باللون الأزرق، بخامة صوف ناعم مع طبقة شيربا من الألياف الدقيقة. السعر المسجل 1,268.25 جنيه وفق بيانات صفحة المنتج التي تمت مراجعتها؛ السعر والتوافر قابلان للتغيير.",
     "features": [
       "مقاس مزدوج 220 × 240 سم",
       "اللون الأزرق",
-      "صوف ناعم مع شيربا مايكروفايبر بحسب بيانات صفحة المنتج",
+      "صوف ناعم مع طبقة شيربا من الألياف الدقيقة بحسب بيانات المنتج",
       "بطانية كهربائية للتدفئة"
     ],
     "hashtags": [
@@ -181,13 +181,13 @@
   {
     "id": "amazon-christmas-velvet-blanket-009",
     "store": "amazon_eg",
-    "title": "Generic Christmas Holiday Decoration Design Blanket, 120 x 160 cm, Multicolor, Soft Warm Velvet Fabric",
+    "title": "بطانية قطيفة ناعمة بتصميم زينة الكريسماس – 120 × 160 سم",
     "search_terms": "Generic Christmas Holiday Decoration Blanket 120x160 cm Multicolor Polyester Velvet",
     "price_egp": 699,
     "affiliate_url": "https://link.amazon/B09bjekxr",
     "image_url": "https://m.media-amazon.com/images/I/71FoLUrFGvL._AC_SX679_.jpg",
     "enabled": true,
-    "description": "بطانية خفيفة غير كهربائية بتصميم زينة الكريسماس، مقاس 120 × 160 سم، متعددة الألوان (أسود وأحمر وأخضر وذهبي)، من البوليستر بقماش قطيفة ناعم ودافئ. مناسبة للاستخدام على الكنبة أو للتدفئة الخفيفة في الليالي الباردة. السعر المسجل 699 جنيه وفق بيانات صفحة المنتج التي راجعها المستخدم، وقد يتغير.",
+    "description": "بطانية خفيفة غير كهربائية بتصميم زينة الكريسماس، مقاس 120 × 160 سم، متعددة الألوان: أسود وأحمر وأخضر وذهبي، من البوليستر بقماش قطيفة ناعم ودافئ. مناسبة للاستخدام على الكنبة أو للتدفئة الخفيفة في الليالي الباردة. السعر المسجل 699 جنيه وفق بيانات صفحة المنتج التي تمت مراجعتها، وقد يتغير.",
     "features": [
       "مقاس 120 × 160 سم",
       "ألوان متعددة: أسود وأحمر وأخضر وذهبي",
@@ -206,25 +206,25 @@
   {
     "id": "amazon-bedsure-sherpa-blanket-010",
     "store": "amazon_eg",
-    "title": "Bedsure Sherpa Fleece Blanket, Soft Microfiber Blanket for Bed, Sofa and Travel, Single Size, Dark Blue, 1.30 x 1.50 m",
+    "title": "بطانية بيدشور ناعمة بطبقة شيربا – فردي، أزرق داكن، 130 × 150 سم",
     "search_terms": "Bedsure Sherpa Fleece Blanket Microfiber Single Throw Dark Blue 130x150 cm",
     "price_egp": 810,
     "original_price_egp": 900,
     "affiliate_url": "https://link.amazon/B0j5duBM4",
     "image_url": "https://m.media-amazon.com/images/I/81AWZRWTwAL._AC_SX679_.jpg",
     "enabled": true,
-    "description": "بطانية Bedsure شيربا ناعمة مقاس فردي 130 × 150 سم، باللون الأزرق الداكن. بوجه فليس ناعم وظهر شيربا من البوليستر/المايكروفايبر، مناسبة للسرير أو الأريكة أو السفر. السعر المسجل 810 جنيه بدلًا من 900 جنيه وفق بيانات صفحة المنتج التي راجعها المستخدم؛ السعر والعرض والتوافر قابلون للتغيير.",
+    "description": "بطانية بيدشور ناعمة مقاس فردي 130 × 150 سم، باللون الأزرق الداكن. بوجه فليس ناعم وظهر شيربا من البوليستر والألياف الدقيقة، مناسبة للسرير أو الأريكة أو السفر. السعر المسجل 810 جنيه بدلًا من 900 جنيه وفق بيانات صفحة المنتج التي تمت مراجعتها؛ السعر والعرض والتوافر قابلون للتغيير.",
     "features": [
       "مقاس فردي 130 × 150 سم",
       "اللون أزرق داكن",
-      "خامة بوليستر/مايكروفايبر 100% وفق بيانات المنتج",
-      "وجه فليس ناعم وظهر شيربا",
+      "خامة بوليستر وألياف دقيقة 100% وفق بيانات المنتج",
+      "وجه ناعم وظهر شيربا",
       "مناسبة للسرير والأريكة والسفر",
       "قابلة للغسل في الغسالة وفق وصف المنتج",
-      "تقييم الصفحة 4.6 من 5 بناءً على 4,948 تقييمًا وقت التحقق"
+      "التقييم المذكور 4.6 من 5 بناءً على 4948 تقييمًا وقت التحقق"
     ],
     "hashtags": [
-      "Bedsure",
+      "بيدشور",
       "بطانية_شيربا",
       "مستلزمات_المنزل",
       "عروض_أمازون"
@@ -233,19 +233,19 @@
   {
     "id": "amazon-cottonil-girls-thermal-set-011",
     "store": "amazon_eg",
-    "title": "Cottonil Girls Thermal Clothing Set, Interlock Fabric with Soft Inner Layer, Black, Years 7-8",
+    "title": "طقم ملابس حرارية للبنات من قطونيل – أسود، مقاس 7 إلى 8 سنوات",
     "search_terms": "Cottonil Girls Thermal Clothing Set Black Years 7-8",
     "price_egp": 315,
     "original_price_egp": 353,
     "affiliate_url": "https://link.amazon/B063C6cEB",
     "image_url": "https://m.media-amazon.com/images/I/51ekHKYQRnL._AC_SX679_.jpg",
     "enabled": true,
-    "description": "طقم ملابس حرارية للبنات من قطونيل، باللون الأسود ومقاس 7–8 سنوات، من نسيج متداخل بطبقة داخلية ناعمة. وفق بيانات المنتج: قطن 100% وقابل للغسيل بالغسالة. السعر المسجل 315 جنيه بدلًا من 353 جنيه وقد يتغير.",
+    "description": "طقم ملابس حرارية للبنات من قطونيل، باللون الأسود ومقاس 7 إلى 8 سنوات، من نسيج متداخل بطبقة داخلية ناعمة. وفق بيانات المنتج: قطن 100% وقابل للغسيل بالغسالة. السعر المسجل 315 جنيه بدلًا من 353 جنيه وقد يتغير.",
     "features": [
-      "المقاس المختار 7–8 سنوات",
-      "مقاسات مذكورة من 3–4 حتى 15–16 سنة",
+      "المقاس المختار 7 إلى 8 سنوات",
+      "مقاسات أخرى مذكورة من 3 إلى 4 حتى 15 إلى 16 سنة",
       "قطن 100% حسب وصف المنتج",
-      "نسيج Interlock بطبقة داخلية ناعمة",
+      "نسيج متداخل بطبقة داخلية ناعمة",
       "اللون أسود",
       "عبوة من قطعة واحدة",
       "قابل للغسيل بالغسالة حسب بيانات المنتج"
@@ -261,21 +261,21 @@
   {
     "id": "amazon-charmin-girls-cotton-camisole-012",
     "store": "amazon_eg",
-    "title": "Charmin Girls Cotton Inner Camisole with Thin Straps, Pack of 2, Multicolor Set 1, 5-6 Years",
+    "title": "فانلة داخلية قطن للبنات من شارمين بحمالات رفيعة – قطعتان، مقاس 5 إلى 6 سنوات",
     "search_terms": "Charmin Girls Cotton Inner Camisole Thin Straps Pack of 2 5-6 Years",
     "price_egp": 160,
     "affiliate_url": "https://link.amazon/B0jaOZWrD",
     "image_url": "https://m.media-amazon.com/images/I/61EK2OUGboL._AC_SX679_.jpg",
     "enabled": true,
-    "description": "فانلة داخلية للبنات من شارمين بحمالات رفيعة، عبوة من قطعتين بألوان متنوعة، مقاس 5–6 سنوات. الخامة 95% قطن و5% ليكرا حسب بيانات المنتج. السعر المسجل 160 جنيه وقد يتغير.",
+    "description": "فانلة داخلية للبنات من شارمين بحمالات رفيعة، عبوة من قطعتين بألوان متنوعة، مقاس 5 إلى 6 سنوات. الخامة 95% قطن و5% ليكرا حسب بيانات المنتج. السعر المسجل 160 جنيه وقد يتغير.",
     "features": [
       "عبوة من قطعتين",
-      "المقاس المختار 5–6 سنوات",
-      "مقاسات أخرى مذكورة من سنتين حتى 15–16 سنة",
+      "المقاس المختار 5 إلى 6 سنوات",
+      "مقاسات أخرى مذكورة من سنتين حتى 15 إلى 16 سنة",
       "95% قطن و5% ليكرا حسب وصف المنتج",
       "حمالات رفيعة ورقبة مربعة وتصميم مفتوح من الخلف",
       "ألوان متعددة؛ الوردي والأخضر الفاتح في المجموعة الظاهرة",
-      "غسيل بالغسالة على درجة حرارة لا تتجاوز 30 مئوية حسب بيانات المنتج",
+      "غسيل بالغسالة على درجة حرارة لا تتجاوز 30 درجة مئوية حسب بيانات المنتج",
       "التقييم المذكور 4.3 من 5 بناءً على 49 تقييمًا وقت التحقق"
     ],
     "hashtags": [
