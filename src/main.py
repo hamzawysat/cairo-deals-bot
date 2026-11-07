@@ -3,7 +3,7 @@ import json, os, sqlite3, math
 from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
-from .publisher import send_telegram
+from .publisher import send_telegram, resolve_amazon_product_url, AmazonLinkResolutionError
 from .facebook_publisher import send_facebook, BufferPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -239,6 +239,15 @@ def run_once():
 
             offer, url = candidate_pool.pop(0)
             attempted_ids.add(offer["id"])
+            store_cfg = settings.get("stores", {}).get(offer.get("store"), {})
+            try:
+                url = resolve_amazon_product_url(
+                    url, str(store_cfg.get("tracking_id") or "").strip()
+                )
+            except AmazonLinkResolutionError as exc:
+                print(f"SKIP {offer['id']}: {exc}; refusing an intermediate-link preview")
+                continue
+
             message_id = send_telegram(
                 token, channel, message_for(offer, url)
             )
