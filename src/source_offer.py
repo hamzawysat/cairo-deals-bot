@@ -30,12 +30,35 @@ PRODUCT_NAME_SKIP = re.compile(
 )
 
 
+_SOURCE_EGP_PRICE_RE = re.compile(
+    r"(?<![\\w])([0-9٠-٩۰-۹]+(?:[.,٫][0-9]{1,2})?)\\s*"
+    r"(?:جنيه(?:اً)?|جنيهات|جنية|ج\\.?م\\.?|EGP|L\\.?E\\.?|LE|ج)(?![\\w])",
+    re.IGNORECASE,
+)
+_SOCIAL_CTA_RE = re.compile(
+    r"تابعنا|جميع منصات التواصل|قناتنا على|قناتنا لعروض|اضغط هنا للانضمام|"
+    r"واتساب|تليجرام|تيليجرام|للانضمام|لينك العرض|رابط العرض",
+    re.IGNORECASE,
+)
+
+
 def extract_source_price(text: str) -> tuple[str, str] | None:
-    """Return only an explicitly stated Egyptian-pound price; reject all other currencies."""
-    egp = extract_egypt_price_text(text or "")
-    if not egp:
+    """Extract an EGP price explicitly written in the Telegram post."""
+    normalized = (text or "").translate(_DIGITS)
+    matches = []
+    for line in normalized.splitlines():
+        if OLD_PRICE_LINE_RE.search(line):
+            continue
+        found = list(_SOURCE_EGP_PRICE_RE.finditer(line))
+        if not found:
+            continue
+        match = found[-1]
+        amount = match.group(1).replace("٫", ".").replace(",", ".")
+        matches.append((0 if CURRENT_PRICE_LINE_RE.search(line) else 1, amount))
+    if not matches:
         return None
-    return egp, "EGP"
+    matches.sort(key=lambda item: item[0])
+    return matches[0][1] + " جنيه", "EGP"
 
 
 def is_allowed_amazon_url(url: str) -> bool:
@@ -171,21 +194,22 @@ def resolve_amazon_product_url(
 
 
 def extract_product_name(message_text: str, ocr_text: str = "") -> str | None:
-    """Take a descriptive source line; never invent a product identity."""
-    candidates = []
-    for line in ((message_text or "") + "\n" + (ocr_text or "")).splitlines():
-        line = re.sub(r"https?://\S+", "", line)
-        line = re.sub(r"^[\W_]+", "", line, flags=re.UNICODE)
-        line = re.sub(r"\s+", " ", line).strip(" -|")
-        if not line or len(line) < 4 or len(line) > 120:
-            continue
-        if PRODUCT_NAME_SKIP.search(line):
-            continue
-        if re.fullmatch(r"[\d\W_]+", line):
-            continue
-        if line not in candidates:
-            candidates.append(line)
-    return candidates[0] if candidates else None
+    """Prefer a real product line from the post and ignore channel calls-to-action."""
+    for source in (message_text or "", ocr_text or ""):
+        for raw_line in source.splitlines():
+            line = re.sub(r"https?://\\S+", "", raw_line)
+            line = re.sub(r"^[\\W_]+", "", line, flags=re.UNICODE)
+            line = re.sub(r"\\s+", " ", line).strip(" -|")
+            if not line or len(line) < 4 or len(line) > 120:
+                continue
+            if PRODUCT_NAME_SKIP.search(line) or _SOCIAL_CTA_RE.search(line):
+                continue
+            if re.fullmatch(r"[\\d\\W_]+", line):
+                continue
+            if _SOURCE_EGP_PRICE_RE.fullmatch(line):
+                continue
+            return line
+    return None
 
 
 def build_source_candidate(
