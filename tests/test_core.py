@@ -17,35 +17,80 @@ def test_jumia_needs_verified_affiliate_url():
         pass
 
 
-def test_message_does_not_invent_price():
-    text = message_for({"title":"منتج","price_egp":None}, "https://example.com")
-    assert "السعر" not in text
-    assert "https://example.com" in text
-
-
-def test_message_includes_description_features_and_hashtags():
+def test_message_is_exactly_three_lines_with_small_link_preview_url():
     text = message_for({
-        "title": "سلك توصيل",
-        "description": "للتوصيل في التجارب الإلكترونية.",
-        "features": ["توصيل Female إلى Male", "للمشروعات الإلكترونية"],
-        "hashtags": ["إلكترونيات", "#مشروعات"],
-        "price_egp": None,
-    }, "https://example.com/item")
-    assert "للتوصيل في التجارب الإلكترونية." in text
-    assert "• توصيل Female إلى Male" in text
-    assert "#إلكترونيات" in text
-    assert "https://example.com/item" in text
+        "title": "مربى فراولة 800 جم + مربى تين 800 جم من ميرو",
+        "price_egp": 105,
+        "original_price_egp": 118,
+    }, "https://link.amazon/B0iUJDVt8")
+    assert text.splitlines() == [
+        "🛍️ مربى فراولة 800 جم + مربى تين 800 جم من ميرو",
+        "💰 105 جنيه بدل 118 جنيه - خصم 11%",
+        "👇 https://link.amazon/B0iUJDVt8",
+    ]
+    assert len(text.splitlines()) == 3
+    assert "مميزات" not in text
+    assert "#" not in text
 
 
-def test_message_shows_price_only_when_provided():
+def test_message_omits_unverified_discount_and_keeps_three_lines():
     text = message_for({
         "title": "منتج",
         "price_egp": 120,
-        "original_price_egp": 150,
-    }, "https://example.com")
-    assert "💰 السعر: 120 جنيه" in text
-    assert "🏷️ السعر السابق: 150 جنيه" in text
+    }, "https://link.amazon/example")
+    assert text.splitlines() == [
+        "🛍️ منتج",
+        "💰 120 جنيه",
+        "👇 https://link.amazon/example",
+    ]
 
+
+def test_message_shortens_long_product_title():
+    text = message_for({
+        "title": "اسم منتج طويل جدًا يحتوي على تفاصيل كثيرة ومواصفات إضافية لا نحتاجها في الإعلان المختصر",
+        "price_egp": 120,
+    }, "https://link.amazon/example")
+    assert len(text.splitlines()) == 3
+    assert len(text.splitlines()[0]) <= 60
+
+
+def test_message_does_not_invent_price():
+    text = message_for({"title":"منتج","price_egp":None}, "https://example.com")
+    assert text.splitlines()[1] == "💰 السعر غير محدد"
+    assert "https://example.com" in text
+
+
+def test_send_telegram_uses_send_message_and_keeps_link_preview(monkeypatch):
+    from src.publisher import send_telegram
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"ok": True, "result": {"message_id": 123}}
+
+    calls = []
+
+    def fake_post(url, **kwargs):
+        calls.append((url, kwargs))
+        return FakeResponse()
+
+    monkeypatch.setattr("src.publisher.requests.post", fake_post)
+    message_id = send_telegram(
+        "test-token",
+        "@test-channel",
+        "🛍️ منتج\\n💰 105 جنيه\\n👇 https://link.amazon/example",
+    )
+
+    assert message_id == "123"
+    assert len(calls) == 1
+    url, kwargs = calls[0]
+    assert url.endswith("/sendMessage")
+    assert kwargs["data"]["disable_web_page_preview"] is False
+    assert "text" in kwargs["data"]
+    assert "files" not in kwargs
+    assert "photo" not in kwargs
 
 def test_offer_score_rewards_complete_verified_data():
     basic = {"title": "منتج"}
