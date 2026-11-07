@@ -122,7 +122,7 @@ async def run() -> bool:
                 except Exception:
                     candidate = None
                 if candidate is None:
-                    combined_text = body + "\\n" + ocr_text
+                    combined_text = body + "\n" + ocr_text
                     resolved_asins = sorted({
                         value[0] for value in resolution_cache.values() if value
                     })
