@@ -99,7 +99,7 @@ def test_candidate_rejects_missing_price_or_ambiguous_asins():
 
 def test_sar_source_price_preserves_current_price_and_currency():
     assert extract_source_price(
-        "السعر السابق 21 ريال\\nالسعر الحالي 11 ريال"
+        "السعر السابق 21 ريال\nالسعر الحالي 11 ريال"
     ) == ("11 ريال سعودي", "SAR")
 
 
@@ -131,9 +131,9 @@ def test_candidate_accepts_amazon_sa_redirect_and_flags_sar_for_review():
     candidate = build_source_candidate(
         message_id=90,
         message_text=(
-            "منظف مرحاض جيف مضاد للبكتيريا 750 مل\\n"
-            "السعر السابق 21 ريال\\n"
-            "السعر الحالي 11 ريال\\n"
+            "منظف مرحاض جيف مضاد للبكتيريا 750 مل\n"
+            "السعر السابق 21 ريال\n"
+            "السعر الحالي 11 ريال\n"
             "https://link.amazon/B0short12"
         ),
         resolver=lambda url: resolved,
