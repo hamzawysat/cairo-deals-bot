@@ -69,8 +69,9 @@ async def run() -> bool:
         prior_state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
     except (OSError, ValueError):
         prior_state = {}
-    prior_message_ids = {int(value) for value in prior_state.get("message_ids", [])}
-    prior_asins = {str(value).upper() for value in prior_state.get("asins", [])}
+    # A preview is not a publication: keep candidates eligible until actually posted.
+    prior_message_ids = {int(value) for value in prior_state.get("published_message_ids", [])}
+    prior_asins = {str(value).upper() for value in prior_state.get("published_asins", [])}
     duplicate_skipped = 0
     rejected = {"no_resolved_asin_or_ambiguous": 0, "missing_name_or_egp_price": 0, "photo_ocr_failed": 0}
     rejection_details = []
