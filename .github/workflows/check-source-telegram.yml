@@ -20,6 +20,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Restore source offer duplicate state
+        uses: actions/cache/restore@v4
+        with:
+          path: artifacts/source-offer-state.json
+          key: ${{ runner.os }}-source-offer-state-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-source-offer-state-
       - name: Install Arabic and English OCR engine
         run: |
           sudo apt-get update
@@ -34,6 +41,11 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
         run: python scripts/build_source_offer_previews.py
+      - name: Save source offer duplicate state
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/source-offer-state.json
+          key: ${{ runner.os }}-source-offer-state-${{ github.run_id }}
       - name: Upload source offer preview report
         if: always()
         uses: actions/upload-artifact@v4
