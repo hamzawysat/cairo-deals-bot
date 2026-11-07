@@ -238,10 +238,9 @@ def run_once():
 
             offer, url = candidate_pool.pop(0)
             attempted_ids.add(offer["id"])
-            try:
-                message_id = send_telegram(
-                    token, channel, message_for(offer, url),
-                )
+            message_id = send_telegram(
+                token, channel, message_for(offer, url),
+            )
             db.execute(
                 "INSERT INTO rotation_posts(cycle_no, offer_id, message_id) VALUES (?, ?, ?)",
                 (current_cycle, offer["id"], message_id),
