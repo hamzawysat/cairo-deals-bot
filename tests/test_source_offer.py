@@ -249,3 +249,13 @@ def test_product_name_does_not_use_social_cta_from_ocr():
         "https://link.amazon/abc",
         "تابعنا على جميع منصات التواصل:\nقناتنا على واتساب"
     ) is None
+
+
+def test_source_price_supports_thousands_separators_without_truncation():
+    assert extract_source_price("السعر 1,349 جنيه") == ("1349 جنيه", "EGP")
+    assert extract_source_price("السعر 66,949ج") == ("66949 جنيه", "EGP")
+    assert extract_source_price("السعر 1,349.50 جنيه") == ("1349.50 جنيه", "EGP")
+
+
+def test_source_price_preserves_compact_egyptian_price():
+    assert extract_source_price("بسعر15999ج") == ("15999 جنيه", "EGP")
