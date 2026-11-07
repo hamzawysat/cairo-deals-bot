@@ -7,7 +7,7 @@ def test_message_ignores_invalid_original_price():
         "price_egp": 100,
         "original_price_egp": "not-a-number",
     }, "https://example.com")
-    assert "💰 السعر: 100 جنيه" in text
+    assert "💰 100 جنيه" in text
     assert "السعر السابق" not in text
 
 
