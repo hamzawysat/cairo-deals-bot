@@ -30,11 +30,16 @@ def clean_ocr_text(raw: str) -> list[str]:
 def classify_ocr_sample(lines: list[str]) -> tuple[str, str]:
     """Flag obvious non-Egypt or non-physical promotions; never auto-approve a product."""
     text = " ".join(lines).casefold()
-    if re.search(r"\bSAR\b|ر\.\s*س|ريال\s*سعودي|ريال", text):
+    foreign_currency = bool(re.search(r"\bSAR\b|ر\.\s*س|ريال\s*سعودي|ريال", text))
+    service_promotion = bool(
+        re.search(r"amazon\s*prime|امازون\s*برايم", text)
+        and re.search(r"اشتراك|subscription|أشهر|شهور|شهر", text)
+    )
+    if foreign_currency and service_promotion:
+        return "skip_non_product_foreign_currency", "Service promotion and foreign currency; not an Egypt physical-product offer."
+    if foreign_currency:
         return "skip_foreign_currency", "Foreign currency detected; do not reuse as an Egypt price."
-    if re.search(r"amazon\s*prime|امازون\s*برايم", text) and re.search(
-        r"اشتراك|subscription|أشهر|شهور|شهر", text
-    ):
+    if service_promotion:
         return "skip_service_promotion", "Subscription/service promotion, not a physical product offer."
     return "manual_product_verification", "Product identity, Egypt price, and ASIN still require verification."
 
