@@ -6,7 +6,7 @@ from difflib import SequenceMatcher
 from urllib.parse import parse_qsl, urlparse
 
 PRICE_RE = re.compile(r"^\d+(?:[.,]\d{1,2})?\s*جنيه$")
-ASIN_PATH_RE = re.compile(r"^/dp/([A-Z0-9]{10})/?$")
+ASIN_PATH_RE = re.compile(r"^/dp/([A-Z0-9]{10})/?$", re.IGNORECASE)
 
 
 def build_original_caption(
@@ -32,7 +32,7 @@ def build_original_caption(
         parsed = urlparse((affiliate_url or "").strip())
     except ValueError:
         return None
-    match = ASIN_PATH_RE.fullmatch(parsed.path.upper())
+    match = ASIN_PATH_RE.fullmatch(parsed.path)
     tags = [value for key, value in parse_qsl(parsed.query) if key == "tag"]
     if (
         parsed.scheme != "https"
