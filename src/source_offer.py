@@ -77,7 +77,8 @@ def extract_urls(text: str, entity_urls: list[str] | None = None) -> list[str]:
 
 
 def resolve_amazon_product_url(
-    url: str, *, session: requests.Session | None = None, max_redirects: int = 8
+    url: str, *, session: requests.Session | None = None, max_redirects: int = 8,
+    diagnostics: dict | None = None,
 ) -> tuple[str, str] | None:
     """Resolve only HTTPS Amazon-owned links; reject every off-domain redirect."""
     client = session or requests.Session()
@@ -88,6 +89,9 @@ def resolve_amazon_product_url(
     try:
         for _ in range(max_redirects + 1):
             if not is_allowed_amazon_url(current):
+                if diagnostics is not None:
+                    diagnostics["reason"] = "redirect_host_not_allowlisted"
+                    diagnostics["host"] = (urlparse(current).hostname or "unknown").lower()
                 return None
             response = client.get(
                 current, allow_redirects=False, timeout=(5, 12),
@@ -98,10 +102,20 @@ def resolve_amazon_product_url(
                 if response.status_code in (301, 302, 303, 307, 308):
                     location = response.headers.get("Location")
                     if not location:
+                        if diagnostics is not None:
+                            diagnostics["reason"] = "redirect_without_location"
                         return None
                     current = urljoin(current, location)
+                    if diagnostics is not None:
+                        diagnostics["redirect_host"] = (urlparse(current).hostname or "unknown").lower()
                     continue
+                if diagnostics is not None:
+                    diagnostics["final_status"] = response.status_code
+                    diagnostics["final_host"] = (urlparse(current).hostname or "unknown").lower()
+                    diagnostics["final_path"] = urlparse(current).path[:100]
                 if response.status_code < 200 or response.status_code >= 400:
+                    if diagnostics is not None:
+                        diagnostics["reason"] = "http_status_rejected"
                     return None
                 parsed = urlparse(current)
                 parts = [part for part in parsed.path.split("/") if part]
@@ -118,12 +132,19 @@ def resolve_amazon_product_url(
                     if match:
                         asin = match.group(1).upper()
                 if asin is None:
+                    if diagnostics is not None:
+                        diagnostics["reason"] = "final_url_has_no_asin"
                     return None
+                if diagnostics is not None:
+                    diagnostics["resolved_asin"] = asin
                 return asin, f"https://www.amazon.eg/dp/{asin}"
             finally:
                 response.close()
         return None
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        if diagnostics is not None:
+            diagnostics["reason"] = "request_exception"
+            diagnostics["error_type"] = type(exc).__name__
         return None
     finally:
         if owns_session:
