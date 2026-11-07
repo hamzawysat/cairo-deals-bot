@@ -31,7 +31,7 @@ PRODUCT_NAME_SKIP = re.compile(
 
 
 _SOURCE_EGP_PRICE_RE = re.compile(
-    r"(?<![\w])([0-9٠-٩۰-۹]+(?:[.,٫][0-9]{1,2})?)\s*"
+    r"([0-9٠-٩۰-۹]+(?:[.,٫][0-9]{1,2})?)\s*"
     r"(?:جنيه(?:اً)?|جنيهات|جنية|ج\.?م\.?|EGP|L\.?E\.?|LE|ج)(?![\w])",
     re.IGNORECASE,
 )
