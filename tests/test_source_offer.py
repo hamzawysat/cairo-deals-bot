@@ -124,7 +124,7 @@ def test_candidate_accepts_amazon_sa_redirect_and_flags_sar_for_review():
 
     from src.source_offer import resolve_amazon_product_url
     resolved = resolve_amazon_product_url(
-        "https://link.amazon/B0short123", session=Session()
+        "https://link.amazon/B0short12", session=Session()
     )
     assert resolved == ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
 
@@ -134,7 +134,7 @@ def test_candidate_accepts_amazon_sa_redirect_and_flags_sar_for_review():
             "منظف مرحاض جيف مضاد للبكتيريا 750 مل\\n"
             "السعر السابق 21 ريال\\n"
             "السعر الحالي 11 ريال\\n"
-            "https://link.amazon/B0short123"
+            "https://link.amazon/B0short12"
         ),
         resolver=lambda url: resolved,
     )
