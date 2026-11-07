@@ -41,6 +41,7 @@ def test_facebook_uses_immediate_publish_and_public_image(mock_post):
     assert variables["channelId"] == "facebook-channel-id"
     assert variables["mode"] == "shareNow"
     assert variables["schedulingType"] == "automatic"
+    assert variables["metadata"] == {"facebook": {"type": "post"}}
     assert variables["assets"] == [
         {"image": {"url": "https://images.example/product.jpg"}}
     ]
@@ -54,6 +55,7 @@ def test_facebook_supports_text_only_posts(mock_post):
 
     variables = mock_post.call_args.kwargs["json"]["variables"]["input"]
     assert variables["assets"] == []
+    assert variables["metadata"]["facebook"]["type"] == "post"
 
 
 def test_facebook_requires_credentials():
