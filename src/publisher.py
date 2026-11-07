@@ -1,5 +1,4 @@
 """Telegram text publisher using Telegram's automatic link preview."""
-import json
 import requests
 
 
@@ -8,7 +7,7 @@ class PublishError(RuntimeError):
 
 
 def send_telegram(token: str, channel_id: str, text: str, timeout: int = 20) -> str:
-    """Send compact ad text and configure Telegram's side link preview."""
+    """Send compact ad text and let Telegram render the affiliate-link preview."""
     if not token or not channel_id:
         raise PublishError("Telegram credentials are missing")
 
@@ -17,10 +16,7 @@ def send_telegram(token: str, channel_id: str, text: str, timeout: int = 20) -> 
         data={
             "chat_id": channel_id,
             "text": text,
-            "link_preview_options": json.dumps({
-                "prefer_small_media": True,
-                "show_above_text": False,
-            }),
+            "disable_web_page_preview": False,
         },
         timeout=timeout,
     )
