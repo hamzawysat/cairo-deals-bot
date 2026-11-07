@@ -7,24 +7,20 @@ from urllib.parse import parse_qsl, urlparse
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 _AMOUNT = r"([0-9]+(?:[.,٫][0-9]{1,2})?)"
-_CURRENCY = r"(?:جنيه(?:اً)?|جنيهات|ج\\.?م\\.?|EGP|L\\.?E\\.?|LE)"
-PRICE_RE = re.compile(r"^\\d+(?:[.]\\d{1,2})?\\s*جنيه$")
-PRICE_WITH_SUFFIX_RE = re.compile(_AMOUNT + r"\\s*" + _CURRENCY, re.IGNORECASE)
-PRICE_WITH_PREFIX_RE = re.compile(_CURRENCY + r"\\s*" + _AMOUNT, re.IGNORECASE)
+_CURRENCY = r"(?:جنيه(?:اً)?|جنيهات|ج\.?م\.?|EGP|L\.?E\.?|LE)"
+PRICE_RE = re.compile(r"^\d+(?:[.]\d{1,2})?\s*جنيه$")
+PRICE_WITH_SUFFIX_RE = re.compile(_AMOUNT + r"\s*" + _CURRENCY, re.IGNORECASE)
+PRICE_WITH_PREFIX_RE = re.compile(_CURRENCY + r"\s*" + _AMOUNT, re.IGNORECASE)
 OLD_PRICE_RE = re.compile(r"قبل|بدلاً? من|كان السعر|السعر القديم|original|was", re.IGNORECASE)
 CURRENT_PRICE_RE = re.compile(r"السعر|بعد الخصم|الآن|حالي[اًا]|عرض", re.IGNORECASE)
 ASIN_PATH_RE = re.compile(r"^/dp/([A-Z0-9]{10})/?$", re.IGNORECASE)
 
 
 def extract_egypt_price_text(text: str) -> str | None:
-    """Extract an explicitly EGP-denominated offer price from ad/OCR text.
-
-    Prefer a current-price line over crossed-out/original-price lines. Currency
-    must be explicit; the function never assumes an unlabelled number is EGP.
-    """
+    """Extract an explicitly EGP-denominated offer price from ad/OCR text."""
     candidates: list[tuple[int, int, str]] = []
     for index, raw_line in enumerate((text or "").translate(_DIGITS).splitlines()):
-        line = re.sub(r"\\s+", " ", raw_line).strip()
+        line = re.sub(r"\s+", " ", raw_line).strip()
         if not line or OLD_PRICE_RE.search(line):
             continue
         match = PRICE_WITH_SUFFIX_RE.search(line)
@@ -59,16 +55,13 @@ def build_original_caption(
 ) -> str | None:
     """Build a fresh caption; source editorial wording is never reused.
 
-    Product name and price must already be verified. The price may be supplied
-    directly or extracted from the source post/OCR, but its Egyptian currency
+    Product name and price must already be verified. Price may be supplied
+    directly or extracted from source post/OCR text; its Egyptian currency
     marker must be explicit. OCR alone does not verify product identity.
-    Returns None unless a canonical tagged Amazon Egypt URL is supplied.
     """
-    name = re.sub(r"\\s+", " ", (product_name or "")).strip()
+    name = re.sub(r"\s+", " ", (product_name or "")).strip()
     price = normalize_egypt_price_text(price_text)
-    if not name or len(name) > 120 or "\\n" in name:
-        return None
-    if not price:
+    if not name or len(name) > 120 or "\n" in name or not price:
         return None
 
     try:
@@ -87,15 +80,15 @@ def build_original_caption(
         return None
 
     caption = (
-        f"🛍️ تفاصيل العرض\\n"
-        f"{name}\\n\\n"
-        f"💰 السعر المعلن: {price}\\n"
-        f"🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\\n\\n"
+        f"🛍️ تفاصيل العرض\n"
+        f"{name}\n\n"
+        f"💰 السعر المعلن: {price}\n"
+        f"🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\n\n"
         f"🔗 {affiliate_url.strip()}"
     )
-    source = re.sub(r"https?://\\S+", "", source_text or "")
-    source = re.sub(r"\\s+", " ", source).strip()
-    generated = re.sub(r"\\s+", " ", caption.rsplit("🔗", 1)[0]).strip()
+    source = re.sub(r"https?://\S+", "", source_text or "")
+    source = re.sub(r"\s+", " ", source).strip()
+    generated = re.sub(r"\s+", " ", caption.rsplit("🔗", 1)[0]).strip()
     if len(source) >= 40 and SequenceMatcher(None, generated, source).ratio() >= 0.72:
         return None
     return caption
