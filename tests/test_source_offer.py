@@ -147,7 +147,7 @@ def test_candidate_requires_one_resolved_asin_and_explicit_egp_price():
     assert result["asin"] == "B0ABC12345"
     assert result["advertised_price"] == "10.80 جنيه"
     assert result["affiliate_url"] == "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21"
-    assert result["source_channel"] == "@amzon44"
+    assert result["source_channel"] == "@OffersEgyptofficial"
     assert result["publishing_performed"] is False
     assert "review_only" in result["image_status"]
 
@@ -193,10 +193,10 @@ def test_candidate_uses_configured_source_channel():
     candidate = build_source_candidate(
         message_id=12,
         message_text="سماعة بلوتوث\nالسعر 200 جنيه\nhttps://amzn.to/x",
-        source_channel="@amzon44",
+        source_channel="@OffersEgyptofficial",
         resolver=resolver,
     )
-    assert candidate["source_channel"] == "@amzon44"
+    assert candidate["source_channel"] == "@OffersEgyptofficial"
 
 
 def test_resolver_rejects_non_2xx_final_response():
