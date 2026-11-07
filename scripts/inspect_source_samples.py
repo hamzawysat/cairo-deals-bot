@@ -5,7 +5,7 @@ import asyncio, logging, os, re, sys, tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import pytesseract
 from telethon import TelegramClient
 from telethon.sessions import StringSession
@@ -13,9 +13,9 @@ from src.processor import build_amazon_affiliate_url, extract_single_asin
 
 SOURCE_CHANNEL = "@amzon44"
 SAMPLE_LIMIT = 10
-PHOTO_DOWNLOAD_LIMIT = 3
+PHOTO_DOWNLOAD_LIMIT = 5
 TRACKING_ID = "cairodeals-21"
-MAX_OCR_LINES = 6
+MAX_OCR_LINES = 10
 MAX_OCR_LINE_LENGTH = 110
 
 def clean_ocr_text(raw: str) -> list[str]:
@@ -62,8 +62,30 @@ async def inspect() -> bool:
                             with Image.open(downloaded) as img:
                                 if img.width <= 0 or img.height <= 0:
                                     raise RuntimeError("Invalid image dimensions")
-                                ocr_image = img.convert("RGB")
-                                raw_ocr = pytesseract.image_to_string(ocr_image, lang="ara+eng", config="--psm 6")
+                                # Enlarge small product graphics and create a higher-contrast
+                                # grayscale copy; run two layouts to improve Arabic/English OCR.
+                                base = img.convert("RGB")
+                                if max(base.size) < 1800:
+                                    scale = min(2.5, 1800 / max(base.size))
+                                    base = base.resize(
+                                        (int(base.width * scale), int(base.height * scale)),
+                                        Image.Resampling.LANCZOS,
+                                    )
+                                gray = ImageOps.autocontrast(ImageOps.grayscale(base))
+                                enhanced = ImageEnhance.Contrast(gray).enhance(1.6)
+                                enhanced = enhanced.filter(
+                                    ImageFilter.UnsharpMask(radius=2, percent=140, threshold=3)
+                                )
+                                raw_parts = []
+                                for candidate in (base, enhanced):
+                                    for psm in (6, 11):
+                                        raw_parts.append(
+                                            pytesseract.image_to_string(
+                                                candidate, lang="ara+eng",
+                                                config=f"--oem 1 --psm {psm}",
+                                            )
+                                        )
+                                raw_ocr = "\\n".join(raw_parts)
                             photo_verified += 1
                             lines = clean_ocr_text(raw_ocr)
                             if lines:
