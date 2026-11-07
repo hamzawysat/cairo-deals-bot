@@ -1,26 +1,19 @@
 """Source-first Amazon offer extraction with strict redirect allowlisting."""
 from __future__ import annotations
 
+import ipaddress
 import re
+import socket
 from urllib.parse import urljoin, urlparse
 
 import requests
 
 from src.original_content import extract_egypt_price_text
+from src.processor import build_amazon_affiliate_url
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
-OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\bwas\b", re.IGNORECASE)
+OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\\bwas\\b", re.IGNORECASE)
 CURRENT_PRICE_LINE_RE = re.compile(r"السعر الحالي|السعر بعد الخصم|السعر|الآن|current price|now", re.IGNORECASE)
-
-
-def extract_source_price(text: str) -> tuple[str, str] | None:
-    """Return only an explicitly stated Egyptian-pound price; reject all other currencies."""
-    egp = extract_egypt_price_text(text or "")
-    if not egp:
-        return None
-    return egp, "EGP"
-
-from src.processor import build_amazon_affiliate_url
 
 ALLOWED_HOSTS = {
     "amazon.eg", "www.amazon.eg", "m.amazon.eg",
@@ -29,12 +22,20 @@ ALLOWED_HOSTS = {
     "amzn.to", "amzn.eu", "a.co", "link.amazon",
     "amzlinks.in", "www.amzlinks.in",
 }
-URL_RE = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
+URL_RE = re.compile(r"https?://[^\\s<>]+", re.IGNORECASE)
 ASIN_RE = re.compile(r"^[A-Z0-9]{10}$")
 PRODUCT_NAME_SKIP = re.compile(
-    r"(?:السعر|جنيه|ج\.م|EGP|\bLE\b|ريال|ر\.س|اطلب|اشتر|الرابط|اضغط|خصم|عرض|amazon\s*prime)",
+    r"(?:السعر|جنيه|ج\\.م|EGP|\\bLE\\b|ريال|ر\\.س|اطلب|اشتر|الرابط|اضغط|خصم|عرض|amazon\\s*prime)",
     re.IGNORECASE,
 )
+
+
+def extract_source_price(text: str) -> tuple[str, str] | None:
+    """Return only an explicitly stated Egyptian-pound price; reject all other currencies."""
+    egp = extract_egypt_price_text(text or "")
+    if not egp:
+        return None
+    return egp, "EGP"
 
 
 def is_allowed_amazon_url(url: str) -> bool:
@@ -60,22 +61,48 @@ def extract_urls(text: str, entity_urls: list[str] | None = None) -> list[str]:
     return found
 
 
+def _public_dns_addresses(host: str) -> list[str]:
+    """Resolve a hostname and reject private, loopback, link-local, or reserved IPs."""
+    try:
+        records = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        addresses = {record[4][0] for record in records}
+        if not addresses:
+            return []
+        for address in addresses:
+            if not ipaddress.ip_address(address).is_global:
+                return []
+        return sorted(addresses)
+    except (OSError, ValueError):
+        return []
+
+
+def _host_is_public(host: str, host_resolver=None) -> bool:
+    addresses = (host_resolver or _public_dns_addresses)(host)
+    return bool(addresses)
+
+
 def resolve_amazon_product_url(
     url: str, *, session: requests.Session | None = None, max_redirects: int = 8,
-    diagnostics: dict | None = None,
+    diagnostics: dict | None = None, host_resolver=None,
 ) -> tuple[str, str] | None:
-    """Resolve only HTTPS Amazon-owned links; reject every off-domain redirect."""
+    """Resolve allowlisted HTTPS Amazon links, validating public DNS at every hop."""
     client = session or requests.Session()
     owns_session = session is None
     if owns_session:
         client.trust_env = False
     current = url
     try:
-        for _ in range(max_redirects + 1):
+        for redirect_number in range(max_redirects + 1):
             if not is_allowed_amazon_url(current):
                 if diagnostics is not None:
                     diagnostics["reason"] = "redirect_host_not_allowlisted"
                     diagnostics["host"] = (urlparse(current).hostname or "unknown").lower()
+                return None
+            host = (urlparse(current).hostname or "").lower()
+            if not _host_is_public(host, host_resolver):
+                if diagnostics is not None:
+                    diagnostics["reason"] = "host_dns_not_public"
+                    diagnostics["host"] = host
                 return None
             response = client.get(
                 current, allow_redirects=False, timeout=(5, 12),
@@ -89,13 +116,17 @@ def resolve_amazon_product_url(
                         if diagnostics is not None:
                             diagnostics["reason"] = "redirect_without_location"
                         return None
+                    if redirect_number >= max_redirects:
+                        if diagnostics is not None:
+                            diagnostics["reason"] = "redirect_limit_exceeded"
+                        return None
                     current = urljoin(current, location)
                     if diagnostics is not None:
                         diagnostics["redirect_host"] = (urlparse(current).hostname or "unknown").lower()
                     continue
                 if diagnostics is not None:
                     diagnostics["final_status"] = response.status_code
-                    diagnostics["final_host"] = (urlparse(current).hostname or "unknown").lower()
+                    diagnostics["final_host"] = host
                     diagnostics["final_path"] = urlparse(current).path[:100]
                 if response.status_code < 200 or response.status_code >= 400:
                     if diagnostics is not None:
@@ -138,15 +169,15 @@ def resolve_amazon_product_url(
 def extract_product_name(message_text: str, ocr_text: str = "") -> str | None:
     """Take a descriptive source line; never invent a product identity."""
     candidates = []
-    for line in ((message_text or "") + "\n" + (ocr_text or "")).splitlines():
-        line = re.sub(r"https?://\S+", "", line)
-        line = re.sub(r"^[\W_]+", "", line, flags=re.UNICODE)
-        line = re.sub(r"\s+", " ", line).strip(" -|")
+    for line in ((message_text or "") + "\\n" + (ocr_text or "")).splitlines():
+        line = re.sub(r"https?://\\S+", "", line)
+        line = re.sub(r"^[\\W_]+", "", line, flags=re.UNICODE)
+        line = re.sub(r"\\s+", " ", line).strip(" -|")
         if not line or len(line) < 4 or len(line) > 120:
             continue
         if PRODUCT_NAME_SKIP.search(line):
             continue
-        if re.fullmatch(r"[\d\W_]+", line):
+        if re.fullmatch(r"[\\d\\W_]+", line):
             continue
         if line not in candidates:
             candidates.append(line)
@@ -156,7 +187,7 @@ def extract_product_name(message_text: str, ocr_text: str = "") -> str | None:
 def build_source_candidate(
     *, message_id: int, message_text: str, ocr_text: str = "",
     entity_urls: list[str] | None = None, tracking_id: str = "cairodeals-21",
-    resolver=resolve_amazon_product_url,
+    source_channel: str = "@amzon44", resolver=resolve_amazon_product_url,
 ) -> dict | None:
     """Build a non-publishing preview from a source price with explicit currency."""
     urls = extract_urls(message_text, entity_urls)
@@ -169,20 +200,16 @@ def build_source_candidate(
     if len(asins) != 1:
         return None
     asin = next(iter(asins))
-    combined = "\n".join(part for part in (message_text, ocr_text) if part)
+    combined = "\\n".join(part for part in (message_text, ocr_text) if part)
     source_price = extract_source_price(combined)
     name = extract_product_name(message_text, ocr_text)
     if not name or not source_price:
         return None
     price, currency = source_price
     affiliate_url = build_amazon_affiliate_url(asin, tracking_id)
-    price_line = (
-        f"💰 السعر المعلن: {price}"
-        if currency == "EGP"
-        else f"💰 السعر المذكور في إعلان المصدر: {price}\n⚠️ السعر بالريال السعودي ولم يتم تحويله للجنيه المصري."
-    )
+    price_line = f"💰 السعر المعلن: {price}"
     return {
-        "source_channel": "@offersegyptofficial",
+        "source_channel": source_channel,
         "source_message_id": int(message_id),
         "product_name_source": name,
         "asin": asin,
@@ -191,15 +218,11 @@ def build_source_candidate(
         "price_source": "message_or_ocr_explicit_currency",
         "affiliate_url": affiliate_url,
         "caption_preview": (
-            f"🛍️ تفاصيل العرض\n{name}\n\n{price_line}\n"
-            "🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\n\n"
+            f"🛍️ تفاصيل العرض\\n{name}\\n\\n{price_line}\\n"
+            "🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\\n\\n"
             f"🔗 {affiliate_url}"
         ),
         "image_status": "source_image_review_only_not_cleared_for_republication",
         "publishing_performed": False,
-        "review_status": (
-            "preview_ready_requires_image_rights_and_human_review"
-            if currency == "EGP"
-            else "preview_ready_but_sar_currency_decision_required_before_egyptian_publication"
-        ),
+        "review_status": "preview_ready_requires_approved_image_and_human_review",
     }
