@@ -30,4 +30,5 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
         run: python -m src.main

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
 from .publisher import send_telegram, PhotoPreparationError
+from .facebook_publisher import send_facebook, BufferPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.getenv("BOT_STATE_DB", ROOT / "data" / "state.sqlite3"))
@@ -222,6 +223,20 @@ def run_once():
             db.commit()
             posted_count += 1
             print(f"POSTED {offer['id']} cycle={current_cycle} message_id={message_id} score={offer_score(offer)}")
+
+            facebook_cfg = channels.get("facebook", {})
+            if facebook_cfg.get("enabled"):
+                try:
+                    facebook_post_id = send_facebook(
+                        os.getenv("BUFFER_API_KEY", ""),
+                        facebook_cfg.get("channel_id", ""),
+                        message_for(offer, url),
+                        photo_url=offer.get("image_url") or None,
+                    )
+                    print(f"FACEBOOK_POSTED {offer['id']} buffer_post_id={facebook_post_id}")
+                except BufferPublishError as exc:
+                    # Facebook failures must never undo or interrupt a successful Telegram post.
+                    print(f"FACEBOOK_ERROR {offer['id']}: {exc}")
     if not posted_count:
         print("NO_ELIGIBLE_OFFERS")
 
