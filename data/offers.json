@@ -387,5 +387,27 @@
       "عروض_11_11",
       "بقالة"
     ]
+  },
+  {
+    "id": "amazon-red-5mm-led-5pcs-017",
+    "store": "amazon_eg",
+    "title": "لمبات LED حمراء 5 ملم – 5 قطع",
+    "search_terms": "5mm Red LED Light Emitting Diodes Pack of 5",
+    "price_egp": 10.8,
+    "affiliate_url": "https://link.amazon/B049WGppS",
+    "image_url": "https://m.media-amazon.com/images/I/51KztySXbPL._AC_SY300_SX300_QL70_ML2_.jpg",
+    "enabled": true,
+    "description": "عبوة تضم 5 لمبات LED حمراء بقطر 5 ملم. السعر المرسل 10.80 جنيه، وقد يتغير السعر والتوافر.",
+    "features": [
+      "عدد 5 قطع",
+      "لون الإضاءة أحمر",
+      "قطر اللمبة 5 ملم"
+    ],
+    "hashtags": [
+      "إلكترونيات",
+      "مكونات_إلكترونية",
+      "LED",
+      "مشروعات_إلكترونية"
+    ]
   }
 ]
