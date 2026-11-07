@@ -56,7 +56,7 @@ def test_message_shortens_long_product_title():
 
 def test_message_does_not_invent_price():
     text = message_for({"title":"منتج","price_egp":None}, "https://example.com")
-    assert text.splitlines()[1] == "💰 السعر غير محدد"
+    assert text.splitlines()[1] == "💰 —"
     assert "https://example.com" in text
 
 
@@ -80,7 +80,7 @@ def test_send_telegram_uses_send_message_and_keeps_link_preview(monkeypatch):
     message_id = send_telegram(
         "test-token",
         "@test-channel",
-        "🛍️ منتج\\n💰 105 جنيه\\n👇 https://link.amazon/example",
+        "🛍️ منتج\n💰 105 جنيه\n👇 https://link.amazon/example",
     )
 
     assert message_id == "123"
