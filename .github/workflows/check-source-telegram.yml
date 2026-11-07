@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/egypt-source-pretest
 permissions:
   contents: read
 concurrency:
@@ -16,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -24,7 +25,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: artifacts/source-offer-state.json
-          key: ${{ runner.os }}-source-offer-state-${{ github.run_id }}
+          key: ${{ runner.os }}-source-offer-state-offersegyptofficial-v2-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-source-offer-state-
       - name: Install Arabic and English OCR engine
