@@ -27,6 +27,17 @@ def clean_ocr_text(raw: str) -> list[str]:
             lines.append(line[:MAX_OCR_LINE_LENGTH])
     return lines[:MAX_OCR_LINES]
 
+def classify_ocr_sample(lines: list[str]) -> tuple[str, str]:
+    """Flag obvious non-Egypt or non-physical promotions; never auto-approve a product."""
+    text = " ".join(lines).casefold()
+    if re.search(r"\bSAR\b|ر\.\s*س|ريال\s*سعودي|ريال", text):
+        return "skip_foreign_currency", "Foreign currency detected; do not reuse as an Egypt price."
+    if re.search(r"amazon\s*prime|امازون\s*برايم", text) and re.search(
+        r"اشتراك|subscription|أشهر|شهور|شهر", text
+    ):
+        return "skip_service_promotion", "Subscription/service promotion, not a physical product offer."
+    return "manual_product_verification", "Product identity, Egypt price, and ASIN still require verification."
+
 async def inspect() -> bool:
     raw_id, api_hash, session = (os.environ.get(k, "") for k in ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION"))
     if not raw_id.isdigit() or not api_hash or not session:
@@ -86,7 +97,7 @@ async def inspect() -> bool:
                                                 config=f"--oem 1 --psm {psm}",
                                             )
                                         )
-                                raw_ocr = "\\n".join(raw_parts)
+                                raw_ocr = "\n".join(raw_parts)
                             photo_verified += 1
                             lines = clean_ocr_text(raw_ocr)
                             if lines:
@@ -102,6 +113,8 @@ async def inspect() -> bool:
                                 "date": message.date.isoformat() if message.date else None,
                                 "ocr_lines": lines,
                                 "status": "ok",
+                                "review_status": classify_ocr_sample(lines)[0],
+                                "review_reason": classify_ocr_sample(lines)[1],
                             })
                         except Exception:
                             photo_failures += 1
@@ -110,6 +123,8 @@ async def inspect() -> bool:
                                 "date": message.date.isoformat() if message.date else None,
                                 "ocr_lines": [],
                                 "status": "ocr_or_download_failed",
+                                "review_status": "manual_review",
+                                "review_reason": "Photo could not be read reliably.",
                             })
                             print(f"Photo/OCR sample {photo_attempts}: validation or OCR failed.")
                 elif message.video:
