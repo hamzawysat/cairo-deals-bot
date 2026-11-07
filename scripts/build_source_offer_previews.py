@@ -26,7 +26,7 @@ from src.source_offer import (
 from src.original_content import extract_egypt_price_text
 from urllib.parse import urlparse
 
-SOURCE_CHANNEL = "@offersegyptofficial"
+SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@amzon44")
 POST_LIMIT = 30
 PHOTO_LIMIT = 10
 TRACKING_ID = "cairodeals-21"
@@ -120,6 +120,7 @@ async def run() -> bool:
                         ocr_text=ocr_text,
                         entity_urls=entity_urls,
                         tracking_id=TRACKING_ID,
+                        source_channel=SOURCE_CHANNEL,
                         resolver=cached_resolver,
                     )
                 except Exception:
@@ -170,7 +171,7 @@ async def run() -> bool:
                     duplicate_skipped += 1
                     continue
                 seen_asins.add(candidate["asin"])
-                candidate["source_post_url"] = f"https://t.me/offersegyptofficial/{message.id}"
+                candidate["source_post_url"] = f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
                 candidate["source_date"] = message.date.isoformat() if message.date else None
                 candidate["ocr_used"] = bool(ocr_text)
                 candidates.append(candidate)
