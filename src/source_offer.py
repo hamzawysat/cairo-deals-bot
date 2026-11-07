@@ -132,7 +132,7 @@ def resolve_amazon_product_url(
                     diagnostics["final_status"] = response.status_code
                     diagnostics["final_host"] = host
                     diagnostics["final_path"] = urlparse(current).path[:100]
-                if response.status_code < 200 or response.status_code >= 400:
+                if response.status_code < 200 or response.status_code >= 300:
                     if diagnostics is not None:
                         diagnostics["reason"] = "http_status_rejected"
                     return None
