@@ -27,7 +27,7 @@ def test_preview_rejects_unverified_asin_or_price_format():
 
 
 def test_preview_rejects_caption_that_is_too_similar_to_source():
-    source = "تفاصيل المنتج والسعر المعلن والعرض الحالي متاح الآن للشراء من صفحة البيع الرسمية"
+    source = "تفاصيل العرض لمبات ليد حمراء 5 ملم - 5 قطع السعر المعلن: 10 جنيه راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية"
     assert prepare_verified_offer_preview(
         product_name="تفاصيل المنتج والسعر المعلن والعرض الحالي متاح الآن",
         price_text="10 جنيه",
