@@ -32,7 +32,7 @@ def build_original_caption(
         parsed = urlparse((affiliate_url or "").strip())
     except ValueError:
         return None
-    match = ASIN_PATH_RE.fullmatch(parsed.path)
+    match = ASIN_PATH_RE.fullmatch(parsed.path.upper())
     tags = [value for key, value in parse_qsl(parsed.query) if key == "tag"]
     if (
         parsed.scheme != "https"
