@@ -12,6 +12,8 @@ def test_only_https_amazon_hosts_are_allowed():
     assert is_allowed_amazon_url("https://amzn.to/abc")
     assert is_allowed_amazon_url("https://www.amazon.eg/dp/B0ABC12345")
     assert is_allowed_amazon_url("https://www.amazon.sa/dp/B0ABC12345")
+    assert is_allowed_amazon_url("https://amzlinks.in/short")
+    assert not is_allowed_amazon_url("https://subdomain.amzlinks.in/short")
     assert not is_allowed_amazon_url("http://www.amazon.eg/dp/B0ABC12345")
     assert not is_allowed_amazon_url("https://evil.example/dp/B0ABC12345")
     assert not is_allowed_amazon_url("https://amazon.eg.evil.example/dp/B0ABC12345")
@@ -143,3 +145,33 @@ def test_candidate_accepts_amazon_sa_redirect_and_flags_sar_for_review():
     assert candidate["advertised_price"] == "11 ريال سعودي"
     assert "لم يتم تحويله للجنيه المصري" in candidate["caption_preview"]
     assert candidate["review_status"].startswith("preview_ready_but_sar")
+
+
+
+def test_shortlink_intermediary_must_end_at_an_amazon_product():
+    class FirstRedirect:
+        status_code = 302
+        headers = {"Location": "https://amzlinks.in/resolve/abc"}
+        def close(self):
+            pass
+    class SecondRedirect:
+        status_code = 302
+        headers = {"Location": "https://www.amazon.sa/dp/B0ABC12345"}
+        def close(self):
+            pass
+    class FinalResponse:
+        status_code = 200
+        headers = {}
+        def close(self):
+            pass
+    class Session:
+        trust_env = True
+        calls = 0
+        def get(self, *args, **kwargs):
+            self.calls += 1
+            return [FirstRedirect(), SecondRedirect(), FinalResponse()][self.calls - 1]
+
+    result = resolve_amazon_product_url(
+        "https://link.amazon/B0short12", session=Session()
+    )
+    assert result == ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
