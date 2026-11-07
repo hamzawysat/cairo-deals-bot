@@ -69,7 +69,7 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: no new review-ready source offer is available.")
         return False
     asin = str(candidate["asin"]).upper()
-    image_url = validate_approved_image_record(manifest.get(asin))
+    image_url = validate_approved_image_record(manifest.get('products', {}).get(asin))
     if not image_url:
         print("PUBLISH BLOCKED: this ASIN has no image with documented reuse permission.")
         return False
