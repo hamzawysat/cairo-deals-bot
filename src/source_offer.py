@@ -191,8 +191,8 @@ def build_source_candidate(
         "price_source": "message_or_ocr_explicit_currency",
         "affiliate_url": affiliate_url,
         "caption_preview": (
-            f"🛍️ تفاصيل العرض\\n{name}\\n\\n{price_line}\\n"
-            "🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\\n\\n"
+            f"🛍️ تفاصيل العرض\n{name}\n\n{price_line}\n"
+            "🔎 راجع تفاصيل المنتج والسعر الحالي من صفحة البيع الرسمية.\n\n"
             f"🔗 {affiliate_url}"
         ),
         "image_status": "source_image_review_only_not_cleared_for_republication",
