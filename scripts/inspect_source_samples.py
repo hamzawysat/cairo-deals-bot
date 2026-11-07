@@ -6,6 +6,9 @@ import asyncio
 import logging
 import os
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from telethon import TelegramClient
 from telethon.sessions import StringSession
