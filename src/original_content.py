@@ -7,7 +7,8 @@ from urllib.parse import parse_qsl, urlparse
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 _AMOUNT = r"([0-9]+(?:[.,٫][0-9]{1,2})?)"
-_CURRENCY = r"(?:جنيه(?:اً)?|جنيهات|ج\.?م\.?|EGP|L\.?E\.?|LE)"
+# "ج" is accepted only as a trailing Egyptian-pound abbreviation; SAR is never converted.
+_CURRENCY = r"(?:جنيه(?:اً)?|جنيهات|ج\.?م\.?|EGP|L\.?E\.?|LE|ج(?=\s|$|[،,.]))"
 PRICE_RE = re.compile(r"^\d+(?:[.]\d{1,2})?\s*جنيه$")
 PRICE_WITH_SUFFIX_RE = re.compile(_AMOUNT + r"\s*" + _CURRENCY, re.IGNORECASE)
 PRICE_WITH_PREFIX_RE = re.compile(_CURRENCY + r"\s*" + _AMOUNT, re.IGNORECASE)
