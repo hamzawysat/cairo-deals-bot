@@ -1,6 +1,7 @@
 from src.source_offer import (
     build_source_candidate,
     extract_product_name,
+    extract_source_price,
     extract_urls,
     is_allowed_amazon_url,
     resolve_amazon_product_url,
@@ -10,6 +11,7 @@ from src.source_offer import (
 def test_only_https_amazon_hosts_are_allowed():
     assert is_allowed_amazon_url("https://amzn.to/abc")
     assert is_allowed_amazon_url("https://www.amazon.eg/dp/B0ABC12345")
+    assert is_allowed_amazon_url("https://www.amazon.sa/dp/B0ABC12345")
     assert not is_allowed_amazon_url("http://www.amazon.eg/dp/B0ABC12345")
     assert not is_allowed_amazon_url("https://evil.example/dp/B0ABC12345")
     assert not is_allowed_amazon_url("https://amazon.eg.evil.example/dp/B0ABC12345")
@@ -92,3 +94,52 @@ def test_candidate_rejects_missing_price_or_ambiguous_asins():
         message_text="لمبة LED حمراء\nالسعر 10 جنيه\nhttps://amzn.to/one https://amzn.to/two",
         resolver=ambiguous,
     ) is None
+
+
+
+def test_sar_source_price_preserves_current_price_and_currency():
+    assert extract_source_price(
+        "السعر السابق 21 ريال\\nالسعر الحالي 11 ريال"
+    ) == ("11 ريال سعودي", "SAR")
+
+
+def test_candidate_accepts_amazon_sa_redirect_and_flags_sar_for_review():
+    responses = []
+    class RedirectResponse:
+        status_code = 302
+        headers = {"Location": "https://www.amazon.sa/dp/B0ABC12345"}
+        def close(self):
+            pass
+    class FinalResponse:
+        status_code = 200
+        headers = {}
+        def close(self):
+            pass
+    class Session:
+        trust_env = True
+        calls = 0
+        def get(self, *args, **kwargs):
+            self.calls += 1
+            return RedirectResponse() if self.calls == 1 else FinalResponse()
+
+    from src.source_offer import resolve_amazon_product_url
+    resolved = resolve_amazon_product_url(
+        "https://link.amazon/B0short123", session=Session()
+    )
+    assert resolved == ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
+
+    candidate = build_source_candidate(
+        message_id=90,
+        message_text=(
+            "منظف مرحاض جيف مضاد للبكتيريا 750 مل\\n"
+            "السعر السابق 21 ريال\\n"
+            "السعر الحالي 11 ريال\\n"
+            "https://link.amazon/B0short123"
+        ),
+        resolver=lambda url: resolved,
+    )
+    assert candidate is not None
+    assert candidate["currency"] == "SAR"
+    assert candidate["advertised_price"] == "11 ريال سعودي"
+    assert "لم يتم تحويله للجنيه المصري" in candidate["caption_preview"]
+    assert candidate["review_status"].startswith("preview_ready_but_sar")
