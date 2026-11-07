@@ -191,7 +191,7 @@ def extract_product_name(message_text: str, ocr_text: str = "") -> str | None:
 def build_source_candidate(
     *, message_id: int, message_text: str, ocr_text: str = "",
     entity_urls: list[str] | None = None, tracking_id: str = "cairodeals-21",
-    source_channel: str = "@amzon44", resolver=resolve_amazon_product_url,
+    source_channel: str = "@OffersEgyptofficial", resolver=resolve_amazon_product_url,
 ) -> dict | None:
     """Build a non-publishing preview from a source price with explicit currency."""
     urls = extract_urls(message_text, entity_urls)
