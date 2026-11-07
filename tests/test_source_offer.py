@@ -99,10 +99,10 @@ def test_candidate_rejects_missing_price_or_ambiguous_asins():
 
 
 
-def test_sar_source_price_preserves_current_price_and_currency():
+def test_sar_source_price_is_rejected():
     assert extract_source_price(
-        "السعر السابق 21 ريال\nالسعر الحالي 11 ريال"
-    ) == ("11 ريال سعودي", "SAR")
+        "السعر السابق 21 ريال\\nالسعر الحالي 11 ريال"
+    ) is None
 
 
 def test_candidate_rejects_sar_even_with_valid_amazon_product_link():
@@ -118,7 +118,6 @@ def test_candidate_rejects_sar_even_with_valid_amazon_product_link():
         resolver=resolver,
     )
     assert candidate is None
-
 
 
 def test_shortlink_intermediary_must_end_at_an_amazon_product():
