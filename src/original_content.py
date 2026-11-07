@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from difflib import SequenceMatcher
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlparse
 
 PRICE_RE = re.compile(r"^\d+(?:[.,]\d{1,2})?\s*جنيه$")
 ASIN_PATH_RE = re.compile(r"^/dp/([A-Z0-9]{10})/?$")
@@ -33,7 +33,7 @@ def build_original_caption(
     except ValueError:
         return None
     match = ASIN_PATH_RE.fullmatch(parsed.path)
-    tags = [value for key, value in __import__("urllib.parse", fromlist=["parse_qsl"]).parse_qsl(parsed.query) if key == "tag"]
+    tags = [value for key, value in parse_qsl(parsed.query) if key == "tag"]
     if (
         parsed.scheme != "https"
         or parsed.hostname != "www.amazon.eg"

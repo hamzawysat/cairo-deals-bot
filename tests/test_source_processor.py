@@ -58,7 +58,7 @@ class ProcessorTests(unittest.TestCase):
         caption = build_original_caption(
             "لمبة LED حمراء 5 ملم - 5 قطع",
             "10.80 جنيه",
-            "https://www.amazon.eg/dp/B049WGppS?tag=cairodeals-21",
+            "https://www.amazon.eg/dp/B049WGppS1?tag=cairodeals-21",
             "عرض جامد جدًا! أسرعوا قبل انتهاء الفرصة",
         )
         self.assertIsNotNone(caption)
@@ -70,16 +70,16 @@ class ProcessorTests(unittest.TestCase):
     def test_original_caption_rejects_unverified_or_missing_facts(self):
         self.assertIsNone(build_original_caption(
             "", "10.80 جنيه",
-            "https://www.amazon.eg/dp/B049WGppS?tag=cairodeals-21",
+            "https://www.amazon.eg/dp/B049WGppS1?tag=cairodeals-21",
         ))
         self.assertIsNone(build_original_caption(
             "لمبة LED", "السعر غير معروف",
-            "https://www.amazon.eg/dp/B049WGppS?tag=cairodeals-21",
+            "https://www.amazon.eg/dp/B049WGppS1?tag=cairodeals-21",
         ))
 
     def test_original_caption_rejects_noncanonical_or_untagged_links(self):
         self.assertIsNone(build_original_caption(
-            "لمبة LED", "10.80 جنيه", "https://amazon.com/dp/B049WGppS"
+            "لمبة LED", "10.80 جنيه", "https://amazon.com/dp/B049WGppS1"
         ))
 
 
