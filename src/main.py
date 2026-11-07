@@ -121,6 +121,41 @@ def message_for(offer, url):
     return "\n".join(lines)
 
 
+def facebook_message_for(offer, url):
+    """Keep the existing Facebook copy unchanged; compact formatting is Telegram-only."""
+    title = str(offer.get("title") or "منتج مميز").strip()
+    description = str(offer.get("description") or "").strip()
+    features = offer.get("features") or []
+    features = [str(item).strip() for item in features if str(item).strip()]
+    price = offer.get("price_egp")
+    original_price = offer.get("original_price_egp")
+    if not _is_valid_price(price):
+        price = None
+
+    lines = [f"✨ {title}", ""]
+    if description:
+        lines.extend([description, ""])
+    if features:
+        lines.append("⭐ أبرز الاستخدامات والمميزات:")
+        lines.extend(f"• {item}" for item in features)
+        lines.append("")
+    if price is not None:
+        lines.append(f"💰 السعر: {price} جنيه")
+    if _has_real_discount(original_price, price):
+        lines.append(f"🏷️ السعر السابق: {original_price} جنيه")
+    if price is not None or original_price is not None:
+        lines.append("")
+    lines.extend(["🛍️ شوف التفاصيل واطلب من هنا:", url, ""])
+    hashtags = offer.get("hashtags") or ["عروض_القاهرة", "تسوق_أونلاين"]
+    clean_tags = []
+    for tag in hashtags:
+        tag = str(tag).strip().lstrip("#").replace(" ", "_")
+        if tag and tag not in clean_tags:
+            clean_tags.append(tag)
+    lines.append("#إعلان " + " ".join(f"#{tag}" for tag in clean_tags[:5]))
+    return "\n".join(lines)
+
+
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as db:
@@ -259,7 +294,7 @@ def run_once():
                     facebook_post_id = send_facebook(
                         os.getenv("BUFFER_API_KEY", ""),
                         facebook_cfg.get("channel_id", ""),
-                        message_for(offer, url),
+                        facebook_message_for(offer, url),
                         photo_url=offer.get("image_url") or None,
                     )
                     print(f"FACEBOOK_POSTED {offer['id']} buffer_post_id={facebook_post_id}")

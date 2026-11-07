@@ -63,6 +63,23 @@ def test_message_does_not_invent_price():
     assert text.endswith("https://example.com")
 
 
+
+def test_facebook_copy_remains_unchanged_by_telegram_compact_template():
+    from src.main import facebook_message_for
+
+    text = facebook_message_for({
+        "title": "منتج",
+        "description": "وصف فيسبوك القديم",
+        "features": ["ميزة"],
+        "hashtags": ["تجربة"],
+        "price_egp": 100,
+        "original_price_egp": 120,
+    }, "https://example.com")
+    assert "وصف فيسبوك القديم" in text
+    assert "⭐ أبرز الاستخدامات والمميزات:" in text
+    assert "#إعلان #تجربة" in text
+
+
 def test_offer_score_rewards_complete_verified_data():
     basic = {"title": "منتج"}
     complete = {
