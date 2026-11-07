@@ -32,7 +32,7 @@ ALLOWED_HOSTS = {
 URL_RE = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
 ASIN_RE = re.compile(r"^[A-Z0-9]{10}$")
 PRODUCT_NAME_SKIP = re.compile(
-    r"(?:السعر|جنيه|ج\.م|EGP|\bLE\b|ريال|ر\.س|اطلب|اشتر|الرابط|اضغط|خصم|عرض|amazon\s*prime)",
+    r"(?:السعر|جنيه|ج\.م|EGP|\bLE\b|ريال|ر\.س|اطلب|اشتر|الرابط|اضغط|خصم|عرض|amazon\s*prime|تابعنا|قناتنا|واتساب|نون|جميع\s*المنصات|لينك\s*العرض|رابط\s*العرض|للتواصل)",
     re.IGNORECASE,
 )
 
