@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - source-monitor
+      - main
 permissions:
   contents: read
 concurrency:
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: source-monitor
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
