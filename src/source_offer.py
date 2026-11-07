@@ -42,6 +42,7 @@ from src.processor import build_amazon_affiliate_url
 ALLOWED_HOSTS = {
     "amazon.eg", "www.amazon.eg", "m.amazon.eg",
     "amazon.com", "www.amazon.com", "m.amazon.com",
+    "amazon.sa", "www.amazon.sa", "m.amazon.sa",
     "amzn.to", "amzn.eu", "a.co", "link.amazon",
 }
 URL_RE = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
@@ -152,7 +153,7 @@ def build_source_candidate(
     entity_urls: list[str] | None = None, tracking_id: str = "cairodeals-21",
     resolver=resolve_amazon_product_url,
 ) -> dict | None:
-    """Build a non-publishing preview only when name, ASIN, and explicit EGP price exist."""
+    """Build a non-publishing preview from a source price with explicit currency."""
     urls = extract_urls(message_text, entity_urls)
     resolved = []
     for url in urls:
@@ -173,7 +174,7 @@ def build_source_candidate(
     price_line = (
         f"💰 السعر المعلن: {price}"
         if currency == "EGP"
-        else f"💰 السعر المذكور في إعلان المصدر: {price}\\n⚠️ السعر بالريال السعودي ولم يتم تحويله للجنيه المصري."
+        else f"💰 السعر المذكور في إعلان المصدر: {price}\n⚠️ السعر بالريال السعودي ولم يتم تحويله للجنيه المصري."
     )
     return {
         "source_channel": "@amzon44",
