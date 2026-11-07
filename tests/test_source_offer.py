@@ -105,46 +105,19 @@ def test_sar_source_price_preserves_current_price_and_currency():
     ) == ("11 ريال سعودي", "SAR")
 
 
-def test_candidate_accepts_amazon_sa_redirect_and_flags_sar_for_review():
-    responses = []
-    class RedirectResponse:
-        status_code = 302
-        headers = {"Location": "https://www.amazon.sa/dp/B0ABC12345"}
-        def close(self):
-            pass
-    class FinalResponse:
-        status_code = 200
-        headers = {}
-        def close(self):
-            pass
-    class Session:
-        trust_env = True
-        calls = 0
-        def get(self, *args, **kwargs):
-            self.calls += 1
-            return RedirectResponse() if self.calls == 1 else FinalResponse()
-
-    from src.source_offer import resolve_amazon_product_url
-    resolved = resolve_amazon_product_url(
-        "https://link.amazon/B0short12", session=Session()
-    )
-    assert resolved == ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
-
+def test_candidate_rejects_sar_even_with_valid_amazon_product_link():
+    resolver = lambda url: ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
     candidate = build_source_candidate(
         message_id=90,
         message_text=(
-            "منظف مرحاض جيف مضاد للبكتيريا 750 مل\n"
-            "السعر السابق 21 ريال\n"
-            "السعر الحالي 11 ريال\n"
+            "منظف مرحاض جيف مضاد للبكتيريا 750 مل\\n"
+            "السعر السابق 21 ريال\\n"
+            "السعر الحالي 11 ريال\\n"
             "https://link.amazon/B0short12"
         ),
-        resolver=lambda url: resolved,
+        resolver=resolver,
     )
-    assert candidate is not None
-    assert candidate["currency"] == "SAR"
-    assert candidate["advertised_price"] == "11 ريال سعودي"
-    assert "لم يتم تحويله للجنيه المصري" in candidate["caption_preview"]
-    assert candidate["review_status"].startswith("preview_ready_but_sar")
+    assert candidate is None
 
 
 
