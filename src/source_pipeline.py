@@ -1,22 +1,27 @@
 """Prepare safe, original Arabic offer previews from verified product facts."""
 from __future__ import annotations
 
-from src.original_content import build_original_caption
+from src.original_content import (
+    build_original_caption,
+    extract_egypt_price_text,
+    normalize_egypt_price_text,
+)
 from src.processor import build_amazon_affiliate_url
 
 
 def prepare_verified_offer_preview(
     product_name: str,
-    price_text: str,
-    asin: str,
-    tracking_id: str,
+    price_text: str = "",
+    asin: str = "",
+    tracking_id: str = "",
     source_text: str = "",
 ) -> dict[str, str] | None:
-    """Return a preview only when caller-supplied facts are independently verified.
+    """Build a preview using the price stated in the source post or OCR.
 
-    This function validates formats and creates the Egypt affiliate URL. It does
-    not verify product identity, price, stock, or image rights. OCR text alone
-    must never be passed as verified facts.
+    The Amazon URL is used only to identify/link the product through its ASIN;
+    it is never used as the source of the advertised price. The caller must
+    independently verify product identity and ASIN. An explicitly EGP-labelled
+    price may be passed directly or extracted from source_text (including OCR).
     """
     try:
         normalized_asin = (asin or "").strip().upper()
@@ -24,9 +29,15 @@ def prepare_verified_offer_preview(
     except (TypeError, ValueError):
         return None
 
+    advertised_price = normalize_egypt_price_text(price_text)
+    if advertised_price is None:
+        advertised_price = extract_egypt_price_text(source_text)
+    if advertised_price is None:
+        return None
+
     caption = build_original_caption(
         product_name=product_name,
-        price_text=price_text,
+        price_text=advertised_price,
         affiliate_url=affiliate_url,
         source_text=source_text,
     )
@@ -35,6 +46,7 @@ def prepare_verified_offer_preview(
 
     return {
         "asin": normalized_asin,
+        "advertised_price": advertised_price,
         "affiliate_url": affiliate_url,
         "caption": caption,
     }
