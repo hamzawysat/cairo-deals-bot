@@ -10,10 +10,10 @@ from src.original_content import extract_egypt_price_text
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 SAR_AMOUNT_RE = re.compile(
-    r"([0-9]+(?:[.,٫][0-9]{1,2})?)\\s*(?:ريال(?:\\s*سعودي)?|ر\\.?\\s*س\\.?|SAR)\\b?",
+    r"([0-9]+(?:[.,٫][0-9]{1,2})?)\s*(?:ريال(?:\s*سعودي)?|ر\.?\s*س\.?|SAR)",
     re.IGNORECASE,
 )
-OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\\bwas\\b", re.IGNORECASE)
+OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\bwas\b", re.IGNORECASE)
 CURRENT_PRICE_LINE_RE = re.compile(r"السعر الحالي|السعر بعد الخصم|السعر|الآن|current price|now", re.IGNORECASE)
 
 
@@ -24,7 +24,7 @@ def extract_source_price(text: str) -> tuple[str, str] | None:
         return egp, "EGP"
     candidates = []
     for index, raw_line in enumerate((text or "").translate(_DIGITS).splitlines()):
-        line = re.sub(r"\\s+", " ", raw_line).strip()
+        line = re.sub(r"\s+", " ", raw_line).strip()
         if not line or OLD_PRICE_LINE_RE.search(line):
             continue
         match = SAR_AMOUNT_RE.search(line)
