@@ -1,6 +1,6 @@
 # Source monitor and one-item Telegram publisher
 
-The source workflow reads `@amzon44`, resolves Amazon short links, and builds
+The source workflow reads `@OffersEgyptofficial`, resolves Amazon short links, and builds
 Arabic offer previews. It runs on a two-hour schedule and after pushes to
 `main`. The normal scheduled and push runs are read-only: they do not post to
 Telegram or Facebook.
@@ -17,7 +17,7 @@ Telegram or Facebook.
 
 ## Image reuse
 
-Photos downloaded from `@amzon44` are OCR evidence only. They are not copied
+Photos downloaded from `@OffersEgyptofficial` are OCR evidence only. They are not copied
 into the preview or republished. The optional publisher reads
 `config/approved_product_images.json` and requires, per ASIN:
 - an HTTPS image URL on an approved Amazon image CDN;
