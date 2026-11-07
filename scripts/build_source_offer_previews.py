@@ -41,7 +41,7 @@ def image_ocr(path: str) -> str:
                 outputs.append(pytesseract.image_to_string(
                     candidate, lang="ara+eng", config=f"--oem 1 --psm {psm}"
                 ))
-        return "\\n".join(outputs)
+        return "\n".join(outputs)
 
 
 async def run() -> bool:
