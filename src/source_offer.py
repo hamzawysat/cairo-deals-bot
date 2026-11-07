@@ -7,6 +7,36 @@ from urllib.parse import urljoin, urlparse
 import requests
 
 from src.original_content import extract_egypt_price_text
+
+_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+SAR_AMOUNT_RE = re.compile(
+    r"([0-9]+(?:[.,٫][0-9]{1,2})?)\\s*(?:ريال(?:\\s*سعودي)?|ر\\.?\\s*س\\.?|SAR)\\b?",
+    re.IGNORECASE,
+)
+OLD_PRICE_LINE_RE = re.compile(r"السابق|قبل|السعر القديم|old price|original|\\bwas\\b", re.IGNORECASE)
+CURRENT_PRICE_LINE_RE = re.compile(r"السعر الحالي|السعر بعد الخصم|السعر|الآن|current price|now", re.IGNORECASE)
+
+
+def extract_source_price(text: str) -> tuple[str, str] | None:
+    """Return an explicitly stated EGP or SAR price without currency conversion."""
+    egp = extract_egypt_price_text(text or "")
+    if egp:
+        return egp, "EGP"
+    candidates = []
+    for index, raw_line in enumerate((text or "").translate(_DIGITS).splitlines()):
+        line = re.sub(r"\\s+", " ", raw_line).strip()
+        if not line or OLD_PRICE_LINE_RE.search(line):
+            continue
+        match = SAR_AMOUNT_RE.search(line)
+        if not match:
+            continue
+        amount = match.group(1).replace("٫", ".").replace(",", ".")
+        priority = 0 if CURRENT_PRICE_LINE_RE.search(line) else 1
+        candidates.append((priority, index, f"{amount} ريال سعودي"))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    return candidates[0][2], "SAR"
 from src.processor import build_amazon_affiliate_url
 
 ALLOWED_HOSTS = {
@@ -74,6 +104,9 @@ def resolve_amazon_product_url(
                     return None
                 parsed = urlparse(current)
                 parts = [part for part in parsed.path.split("/") if part]
+                if (parsed.hostname or "").lower() == "link.amazon" and len(parts) == 1 and ASIN_RE.fullmatch(parts[0].upper()):
+                    asin = parts[0].upper()
+                    return asin, f"https://www.amazon.eg/dp/{asin}"
                 asin = None
                 for index, part in enumerate(parts[:-1]):
                     if part.lower() in {"dp", "product"} and ASIN_RE.fullmatch(parts[index + 1].upper()):
@@ -131,18 +164,25 @@ def build_source_candidate(
         return None
     asin = next(iter(asins))
     combined = "\n".join(part for part in (message_text, ocr_text) if part)
-    price = extract_egypt_price_text(combined)
+    source_price = extract_source_price(combined)
     name = extract_product_name(message_text, ocr_text)
-    if not name or not price:
+    if not name or not source_price:
         return None
+    price, currency = source_price
     affiliate_url = build_amazon_affiliate_url(asin, tracking_id)
+    price_line = (
+        f"💰 السعر المعلن: {price}"
+        if currency == "EGP"
+        else f"💰 السعر المذكور في إعلان المصدر: {price}\\n⚠️ السعر بالريال السعودي ولم يتم تحويله للجنيه المصري."
+    )
     return {
         "source_channel": "@amzon44",
         "source_message_id": int(message_id),
         "product_name_source": name,
         "asin": asin,
         "advertised_price": price,
-        "price_source": "message_or_ocr_explicit_egp",
+        "currency": currency,
+        "price_source": "message_or_ocr_explicit_currency",
         "affiliate_url": affiliate_url,
         "caption_preview": (
             f"🛍️ تفاصيل العرض\n{name}\n\n💰 السعر المعلن: {price}\n"
@@ -151,5 +191,9 @@ def build_source_candidate(
         ),
         "image_status": "source_image_review_only_not_cleared_for_republication",
         "publishing_performed": False,
-        "review_status": "preview_ready_requires_image_rights_and_human_review",
+        "review_status": (
+            "preview_ready_requires_image_rights_and_human_review"
+            if currency == "EGP"
+            else "preview_ready_but_sar_currency_decision_required_before_egyptian_publication"
+        ),
     }
