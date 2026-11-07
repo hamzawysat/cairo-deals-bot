@@ -1,0 +1,70 @@
+from src.source_publish import (
+    mark_candidate_published,
+    select_unpublished_candidate,
+    validate_approved_image_record,
+)
+
+
+def test_image_requires_explicit_reuse_permission_and_source():
+    assert validate_approved_image_record({
+        "url": "https://m.media-amazon.com/images/I/example.jpg",
+        "rights_confirmed": True,
+        "rights_source": "Merchant written permission",
+    }) == "https://m.media-amazon.com/images/I/example.jpg"
+    assert validate_approved_image_record({
+        "url": "https://m.media-amazon.com/images/I/example.jpg",
+        "rights_confirmed": False,
+        "rights_source": "Merchant written permission",
+    }) is None
+    assert validate_approved_image_record({
+        "url": "https://m.media-amazon.com/images/I/example.jpg",
+        "rights_confirmed": True,
+        "rights_source": "",
+    }) is None
+
+
+def test_image_rejects_unapproved_hosts_and_non_https():
+    assert validate_approved_image_record({
+        "url": "https://evil.example/image.jpg",
+        "rights_confirmed": True,
+        "rights_source": "Written license from owner",
+    }) is None
+    assert validate_approved_image_record({
+        "url": "http://m.media-amazon.com/image.jpg",
+        "rights_confirmed": True,
+        "rights_source": "Written license from owner",
+    }) is None
+
+
+def test_only_one_unpublished_candidate_is_selected():
+    candidate = {
+        "source_message_id": 22,
+        "asin": "B0ABC12345",
+        "affiliate_url": "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21",
+        "caption_preview": "عرض تجريبي",
+        "publishing_performed": False,
+    }
+    report = {"candidates": [candidate, dict(candidate, source_message_id=23, asin="C0ABC12345")]}
+    selected = select_unpublished_candidate(report, {"published_asins": ["B0ABC12345"]})
+    assert selected["source_message_id"] == 23
+
+
+def test_published_candidate_is_not_selected_again():
+    candidate = {
+        "source_message_id": 22,
+        "asin": "B0ABC12345",
+        "affiliate_url": "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21",
+        "caption_preview": "عرض تجريبي",
+        "publishing_performed": False,
+    }
+    assert select_unpublished_candidate(
+        {"candidates": [candidate]},
+        {"published_message_ids": [22], "published_asins": ["B0ABC12345"]},
+    ) is None
+
+
+def test_publish_state_marks_message_and_asin_only_after_confirmation():
+    candidate = {"source_message_id": 22, "asin": "B0ABC12345"}
+    updated = mark_candidate_published({}, candidate)
+    assert updated["published_message_ids"] == [22]
+    assert updated["published_asins"] == ["B0ABC12345"]
