@@ -33,9 +33,15 @@ def load_json(path: Path) -> dict:
 
 
 def prepare_approved_image(url: str, destination: Path) -> None:
-    response = requests.get(url, timeout=(5, 15), stream=True, headers={
-        "User-Agent": "CairoDealsPublisher/1.0",
-    })
+    client = requests.Session()
+    client.trust_env = False
+    response = client.get(
+        url,
+        allow_redirects=False,
+        timeout=(5, 15),
+        stream=True,
+        headers={"User-Agent": "CairoDealsPublisher/1.0"},
+    )
     try:
         response.raise_for_status()
         content = response.raw.read(10 * 1024 * 1024 + 1)
@@ -50,6 +56,7 @@ def prepare_approved_image(url: str, destination: Path) -> None:
             canvas.save(destination, format="JPEG", quality=90, optimize=True)
     finally:
         response.close()
+        client.close()
 
 
 async def publish_one() -> bool:
