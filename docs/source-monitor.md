@@ -7,7 +7,7 @@ not replace, disable, or publish through the existing scheduled publisher.
 ## Current safety boundary
 
 - The GitHub Actions check authenticates the Telegram user session, resolves
-  `@offersegyptofficial` and `@cairo_deals`, and reads at most ten recent source messages.
+  `@amzon44` and `@cairo_deals`, and reads at most ten recent source messages.
 - It downloads and validates up to three source photos for read-only OCR.
 - The check never sends, edits, forwards, or deletes Telegram messages.
 - Telegram credentials are read only from GitHub Actions secrets and are never printed.
