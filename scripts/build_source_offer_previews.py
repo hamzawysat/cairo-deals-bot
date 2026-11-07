@@ -16,6 +16,7 @@ import pytesseract
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.source_offer import build_source_candidate
 
 SOURCE_CHANNEL = "@amzon44"
