@@ -168,3 +168,27 @@ def test_retry_queue_does_not_duplicate_deferred_candidate():
     failed = {"source_message_id": 1}
     next_offer = {"source_message_id": 2}
     assert defer_candidates_for_retry([failed, next_offer], [failed, failed]) == [next_offer, failed]
+
+
+
+def test_automatic_publisher_verifies_saved_telegram_message_and_passes_product_image():
+    from pathlib import Path
+    content = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
+    assert 'client.get_messages(target, ids=int(telegram_id))' in content
+    assert 'TELEGRAM STALE STATUS CLEARED' in content
+    assert 'publish_facebook, meta_token, caption, str(candidate["_live_image_url"])' in content
+
+
+def test_manual_publisher_uses_live_image_and_checks_saved_telegram_message():
+    from pathlib import Path
+    content = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
+    assert 'find_amazon_product_details' in content
+    assert 'publish_facebook, meta_token, caption, image_url' in content
+    assert 'client.get_messages(target, ids=int(saved_telegram_id))' in content
+    assert 'create_telegram_product_card' in content
+
+
+def test_manual_workflow_does_not_run_automatic_queue_first():
+    from pathlib import Path
+    content = Path(".github/workflows/check-source-telegram.yml").read_text(encoding="utf-8")
+    assert "inputs.publish_one != true" in content
