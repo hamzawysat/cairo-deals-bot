@@ -79,6 +79,7 @@ def test_caption_changes_only_presentation_and_keeps_original_links():
 
     assert "زيت عباد الشمس" in telegram
     assert "432 جنيه" in telegram
+    assert "\n\n" in telegram
     assert candidate["affiliate_url"] in telegram
     assert candidate["affiliate_url"] in facebook
     assert "https://t.me/cairo_deals" in telegram
