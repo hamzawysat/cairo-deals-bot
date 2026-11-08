@@ -74,7 +74,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     return "\n".join(lines).strip()
 
 
-FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60  # Facebook every two hours; Telegram cadence is unchanged
+FACEBOOK_INTERVAL_SECONDS = 2 * 60  # TEMP TEST: Facebook every two minutes; restore after verification
 
 
 def _facebook_due(state: dict) -> bool:
