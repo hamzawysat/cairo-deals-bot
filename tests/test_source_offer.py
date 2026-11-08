@@ -262,3 +262,17 @@ def test_source_price_supports_thousands_separators_without_truncation():
 
 def test_source_price_preserves_compact_egyptian_price():
     assert extract_source_price("بسعر15999ج") == ("15999 جنيه", "EGP")
+
+
+
+def test_product_name_removes_ocr_prefix_and_dangling_price_particle():
+    assert extract_product_name("8( بم 62 شاحن سيارة من يو جرين بمنفذ prime") == (
+        "شاحن سيارة من يو جرين بمنفذ prime"
+    )
+    assert extract_product_name("شاحن 65W موديل UC260 من Havit ب") == (
+        "شاحن 65W موديل UC260 من Havit"
+    )
+
+
+def test_product_name_rejects_purchase_quantity_cta_fragment():
+    assert extract_product_name("بـ للقطعة لما تشتري 3") is None
