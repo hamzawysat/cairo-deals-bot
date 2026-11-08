@@ -214,6 +214,7 @@ async def publish_pending() -> bool:
                         )
                     state = mark_platform_published(state, candidate, "telegram", telegram_id)
                     save_state(state)
+                    processed += 1
                     print(f"TELEGRAM CONFIRMED for source {message_id}: {telegram_id}")
                 except Exception as exc:
                     all_ok = False
@@ -235,7 +236,6 @@ async def publish_pending() -> bool:
                     published.add(message_id)
                     state["published_message_ids"] = sorted(published)[-1000:]
                     save_state(state)
-                    processed += 1
                     print(f"OFFER COMPLETE (Telegram only, Facebook skipped): source message {message_id}.")
                     continue
                 else:
@@ -265,7 +265,6 @@ async def publish_pending() -> bool:
                     if str(item.get("source_message_id")) != key
                 ]
                 save_state(state)
-                processed += 1
                 print(f"OFFER COMPLETE: source message {message_id} delivered to both destinations.")
 
         if deferred_candidates:
