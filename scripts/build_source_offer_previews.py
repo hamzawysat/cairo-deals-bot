@@ -42,8 +42,7 @@ async def run() -> bool:
     pending_candidates=list(prior_state.get("pending_candidates",[]))
     pending_message_ids={int(i.get("source_message_id",0)) for i in pending_candidates if isinstance(i,dict)}
     pending_keys={str(i.get("source_product_key", i.get("source_message_id"))) for i in pending_candidates if isinstance(i,dict)}
-    # ONE-TIME RESCAN ONLY - REVERT AFTER RUN #173: ignore cached cursor so old combined ad is re-checked
-    last_seen_message_id=0
+    last_seen_message_id=int(prior_state.get("last_seen_message_id",0) or 0)
     highest_seen_message_id=last_seen_message_id; duplicate_skipped=0
     rejected={"no_resolved_asin_or_ambiguous":0,"missing_name_or_egp_price":0,"photo_ocr_failed":0}
     rejection_details=[]; photo_count=0
