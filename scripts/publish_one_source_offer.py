@@ -53,14 +53,12 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: enter the exact source post ID you reviewed.")
         return False
     selected_id = int(raw_source_id)
-    buffer_key = os.environ.get("BUFFER_API_KEY", "")
-    facebook_cfg = settings.get("channels", {}).get("facebook", {})
-    facebook_channel_id = str(facebook_cfg.get("channel_id") or "").strip()
+    meta_token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
     raw_id = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
     session = os.environ.get("TELEGRAM_SESSION", "")
-    if not buffer_key or not facebook_channel_id:
-        print("PUBLISH BLOCKED: Buffer API key or Facebook channel ID is missing.")
+    if not meta_token:
+        print("PUBLISH BLOCKED: Meta Page access token is missing.")
         return False
     if not raw_id.isdigit() or not api_hash or not session:
         print("PUBLISH BLOCKED: Telegram user-session credentials are missing.")
