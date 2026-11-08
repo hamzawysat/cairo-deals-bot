@@ -74,42 +74,17 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     return "\n".join(lines).strip()
 
 
-FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60  # Facebook every 2 hours, Telegram stays every 2 minutes
+FACEBOOK_INTERVAL_SECONDS = 2 * 60  # TEMP TEST: Facebook every two minutes; restore after verification
+
 
 def _facebook_due(state: dict) -> bool:
-    """True if Facebook hasn't published in the last 2 hours (or never)."""
     import time
-    last = state.get("last_facebook_publish_at") or 0
     try:
-        last = float(last)
+        last = float(state.get("last_facebook_publish_at") or 0)
     except (TypeError, ValueError):
         return True
     return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
 
-def _telegram_post_url(telegram_id: str) -> str | None:
-    """Public link to the Telegram post - Buffer uses it to fetch the card image."""
-    tid = str(telegram_id or "").strip()
-    if not tid.isdigit():
-        return None
-    return f"https://t.me/cairo_deals/{tid}"
-
-
-FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60
-
-def _facebook_due(state: dict) -> bool:
-    import time
-    last = state.get("last_facebook_publish_at") or 0
-    try:
-        last = float(last)
-    except (TypeError, ValueError):
-        return True
-    return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
-
-def _telegram_post_url(telegram_id: str) -> str | None:
-    tid = str(telegram_id or "").strip()
-    if not tid.isdigit():
-        return None
-    return f"https://t.me/cairo_deals/{tid}"
 
 async def publish_pending() -> bool:
     if os.environ.get("SOURCE_AUTO_PUBLISH_ENABLED", "").strip().lower() != "true":
@@ -151,15 +126,10 @@ async def publish_pending() -> bool:
     raw_id = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
     session = os.environ.get("TELEGRAM_SESSION", "")
-    buffer_key = os.environ.get("BUFFER_API_KEY", "")
-    facebook_channel_id = str(channels.get("facebook", {}).get("channel_id") or "").strip()
+    meta_token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
     if not raw_id.isdigit() or not api_hash or not session:
         print("AUTO-PUBLISH BLOCKED: Telegram credentials are missing.")
         return False
-    if not buffer_key or not facebook_channel_id:
-        print("AUTO-PUBLISH BLOCKED: Buffer credentials or Facebook channel ID are missing.")
-        return False
-
     client = TelegramClient(StringSession(session), int(raw_id), api_hash)
     all_ok = True
     try:
@@ -251,10 +221,9 @@ async def publish_pending() -> bool:
                     continue
                 else:
                     try:
-                        # FIX: Buffer needs a direct *.jpg URL, not a Telegram post page (HTML).
-                        # Telegram post link caused BufferPublishError, so send text-only for now.
+                        # Source-channel photos are not reused without documented image rights.
                         facebook_id = await asyncio.to_thread(
-                            publish_facebook, buffer_key, facebook_channel_id, caption, None
+                            publish_facebook, meta_token, caption, None
                         )
                         state = mark_platform_published(state, candidate, "facebook", facebook_id)
                         import time as _time

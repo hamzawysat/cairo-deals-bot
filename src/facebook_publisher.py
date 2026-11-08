@@ -1,99 +1,65 @@
-"""Facebook publishing through Buffer's GraphQL API.
-
-This module is deliberately independent from the Telegram publisher.
-"""
+"""Direct Facebook Page publishing through the Meta Graph API."""
+from __future__ import annotations
+import os
 import requests
 
-
-BUFFER_API_URL = "https://api.buffer.com"
-CREATE_POST_MUTATION = """
-mutation PublishFacebookPost($input: CreatePostInput!) {
-  createPost(input: $input) {
-    ... on PostActionSuccess {
-      post {
-        id
-        status
-        sharedNow
-      }
-    }
-    ... on MutationError {
-      message
-    }
-  }
-}
-"""
+GRAPH_API_VERSION = "v27.0"
+GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 
-class BufferPublishError(RuntimeError):
-    """Buffer rejected the Facebook post or could not be reached."""
+class FacebookPublishError(RuntimeError):
+    """Meta rejected a Facebook Page post or could not be reached."""
 
 
-def send_facebook(
-    api_key: str,
-    channel_id: str,
-    text: str,
-    photo_url: str | None = None,
-    timeout: int = 30,
-) -> str:
-    """Publish one standard Facebook feed post immediately via Buffer."""
-    if not api_key:
-        raise BufferPublishError("Buffer API key is missing")
-    if not channel_id:
-        raise BufferPublishError("Buffer Facebook channel ID is missing")
-    if not text or not text.strip():
-        raise BufferPublishError("Facebook post text is empty")
-    if photo_url and not photo_url.startswith("https://"):
-        raise BufferPublishError("Facebook image URL must use HTTPS")
-
-    assets = []
-    if photo_url:
-        assets.append({"image": {"url": photo_url}})
-
-    payload = {
-        "query": CREATE_POST_MUTATION,
-        "variables": {
-            "input": {
-                "channelId": channel_id,
-                "text": text,
-                "assets": assets,
-                "metadata": {"facebook": {"type": "post"}},
-                "schedulingType": "automatic",
-                "mode": "shareNow",
-                "needsApproval": False,
-            }
-        },
-    }
-
+def get_page_identity(page_access_token: str, timeout: int = 20) -> dict:
+    if not page_access_token:
+        raise FacebookPublishError("Meta Page access token is missing")
     try:
-        response = requests.post(
-            BUFFER_API_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
+        response = requests.get(
+            f"{GRAPH_API_BASE}/me",
+            params={"fields": "id,name", "access_token": page_access_token},
             timeout=timeout,
         )
         response.raise_for_status()
         result = response.json()
     except requests.RequestException as exc:
-        raise BufferPublishError(f"Buffer request failed: {exc}") from exc
+        raise FacebookPublishError("Meta Page identity request failed") from exc
     except ValueError as exc:
-        raise BufferPublishError("Buffer returned invalid JSON") from exc
+        raise FacebookPublishError("Meta returned invalid identity JSON") from exc
+    if result.get("error"):
+        raise FacebookPublishError(str(result["error"].get("message", "Meta identity validation failed")))
+    page_id, page_name = str(result.get("id") or "").strip(), str(result.get("name") or "").strip()
+    expected_name = os.getenv("META_PAGE_NAME", "cairodeals").strip()
+    if not page_id or not page_name:
+        raise FacebookPublishError("Meta token did not resolve to a Facebook Page")
+    if expected_name and page_name.casefold() != expected_name.casefold():
+        raise FacebookPublishError(f"Meta token resolved to '{page_name}', not expected Page '{expected_name}'")
+    return {"id": page_id, "name": page_name}
 
-    if result.get("errors"):
-        messages = "; ".join(
-            str(item.get("message", "GraphQL error"))
-            for item in result["errors"]
-        )
-        raise BufferPublishError(messages)
 
-    action = (result.get("data") or {}).get("createPost") or {}
-    if action.get("message"):
-        raise BufferPublishError(str(action["message"]))
-
-    post = action.get("post") or {}
-    post_id = post.get("id")
+def send_facebook(page_access_token: str, text: str, photo_url: str | None = None, timeout: int = 30) -> str:
+    if not page_access_token:
+        raise FacebookPublishError("Meta Page access token is missing")
+    if not text or not text.strip():
+        raise FacebookPublishError("Facebook post text is empty")
+    if photo_url and not photo_url.startswith("https://"):
+        raise FacebookPublishError("Facebook image URL must use HTTPS")
+    page = get_page_identity(page_access_token, timeout=min(timeout, 20))
+    endpoint = f"{GRAPH_API_BASE}/{page['id']}/photos" if photo_url else f"{GRAPH_API_BASE}/{page['id']}/feed"
+    payload = {"access_token": page_access_token, "caption" if photo_url else "message": text}
+    if photo_url:
+        payload["url"] = photo_url
+    try:
+        response = requests.post(endpoint, data=payload, timeout=timeout)
+        response.raise_for_status()
+        result = response.json()
+    except requests.RequestException as exc:
+        raise FacebookPublishError("Meta publish request failed") from exc
+    except ValueError as exc:
+        raise FacebookPublishError("Meta returned invalid publish JSON") from exc
+    if result.get("error"):
+        raise FacebookPublishError(str(result["error"].get("message", "Meta rejected the post")))
+    post_id = result.get("post_id") or result.get("id")
     if not post_id:
-        raise BufferPublishError("Buffer did not confirm successful post creation")
+        raise FacebookPublishError("Meta did not confirm successful post creation")
     return str(post_id)

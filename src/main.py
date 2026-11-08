@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from .providers import build_affiliate_url, ProviderError
 from .publisher import send_telegram, PhotoPreparationError
-from .facebook_publisher import send_facebook, BufferPublishError
+from .facebook_publisher import send_facebook, FacebookPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.getenv("BOT_STATE_DB", ROOT / "data" / "state.sqlite3"))
@@ -160,6 +160,7 @@ def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as db:
         db.execute("CREATE TABLE IF NOT EXISTS posted (offer_id TEXT PRIMARY KEY, message_id TEXT, posted_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+        db.execute("CREATE TABLE IF NOT EXISTS facebook_post_state (id INTEGER PRIMARY KEY CHECK (id = 1), posted_at TEXT NOT NULL)")
 
 
 def _target_eligible_offers(eligible, target_offer_id):
@@ -295,17 +296,31 @@ def run_once():
 
             facebook_cfg = channels.get("facebook", {})
             if facebook_cfg.get("enabled"):
-                try:
-                    facebook_post_id = send_facebook(
-                        os.getenv("BUFFER_API_KEY", ""),
-                        facebook_cfg.get("channel_id", ""),
-                        facebook_message_for(offer, url),
-                        photo_url=offer.get("image_url") or None,
-                    )
-                    print(f"FACEBOOK_POSTED {offer['id']} buffer_post_id={facebook_post_id}")
-                except BufferPublishError as exc:
-                    # Facebook failures must never undo or interrupt a successful Telegram post.
-                    print(f"FACEBOOK_ERROR {offer['id']}: {exc}")
+                last_facebook = db.execute("SELECT posted_at FROM facebook_post_state WHERE id=1").fetchone()
+                facebook_due = True
+                if last_facebook:
+                    try:
+                        last_dt = datetime.strptime(last_facebook[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                        facebook_due = (datetime.now(timezone.utc) - last_dt).total_seconds() >= 2 * 60
+                    except (TypeError, ValueError):
+                        facebook_due = True
+                if not facebook_due:
+                    print(f"FACEBOOK_SKIPPED {offer['id']}: two-hour interval has not elapsed")
+                else:
+                    try:
+                        facebook_post_id = send_facebook(
+                            os.getenv("META_PAGE_ACCESS_TOKEN", ""),
+                            facebook_message_for(offer, url),
+                            photo_url=offer.get("image_url") or None,
+                        )
+                        db.execute(
+                            "INSERT INTO facebook_post_state(id, posted_at) VALUES(1, CURRENT_TIMESTAMP) "
+                            "ON CONFLICT(id) DO UPDATE SET posted_at=excluded.posted_at"
+                        )
+                        db.commit()
+                        print(f"FACEBOOK_POSTED {offer['id']} meta_post_id={facebook_post_id}")
+                    except FacebookPublishError as exc:
+                        print(f"FACEBOOK_ERROR {offer['id']}: {exc}")
     if not posted_count:
         print("NO_ELIGIBLE_OFFERS")
 

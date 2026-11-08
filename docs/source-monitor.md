@@ -47,10 +47,10 @@ Example entry (replace with a real, authorized image and permission record):
 Use **Actions → Build source offer previews → Run workflow**. Keep
 `publish_one` unchecked for preview-only operation. Checking it and entering the exact source post ID from the preview report is an
 explicit manual approval to publish that one reviewed offer as a text post to
-`@cairo_deals` and the configured Facebook page through Buffer.
+`@cairo_deals` and the configured Facebook page directly through the Meta Graph API.
 
 The publisher requires the selected source post ID, Telegram user session,
-`BUFFER_API_KEY`, and the Facebook channel ID in `config/settings.json`. It does not copy the source
+`META_PAGE_ACCESS_TOKEN` (a Page access token for the `cairodeals` Page). The workflow resolves the Page ID from that token and checks the Page name before publishing. It does not copy the source
 channel photo. The product link is included in the Arabic caption; Telegram
 and Facebook may render their own link previews. This text-only fallback avoids
 reusing an image without documented rights.
@@ -60,13 +60,10 @@ but Telegram fails (or vice versa), the next manual retry skips the destination
 already confirmed and attempts only the unfinished one. A successful full
 delivery marks the source message and ASIN as published.
 
-The workflow remains review-only on its schedule. No automatic live publishing
-is enabled by these changes.
+The scheduled source-monitor workflow can automatically publish queued offers. Telegram delivery retains its existing cadence; Facebook is attempted only when two hours have elapsed since the last confirmed Facebook post. The external Cron Console trigger remains unchanged.
 
 ## State and operational limits
 
 GitHub Actions cache is used as best-effort deduplication between scheduled
 runs; it is not a transactional database and cannot guarantee exactly-once
-delivery after an interrupted network request. A permanent unattended listener
-requires a long-running host and durable database. No live post is performed
-by the normal workflow.
+delivery after an interrupted network request. A permanent unattended listener requires a long-running host and durable database. GitHub Actions cache remains best-effort state storage.

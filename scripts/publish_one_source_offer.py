@@ -53,14 +53,12 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: enter the exact source post ID you reviewed.")
         return False
     selected_id = int(raw_source_id)
-    buffer_key = os.environ.get("BUFFER_API_KEY", "")
-    facebook_cfg = settings.get("channels", {}).get("facebook", {})
-    facebook_channel_id = str(facebook_cfg.get("channel_id") or "").strip()
+    meta_token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
     raw_id = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
     session = os.environ.get("TELEGRAM_SESSION", "")
-    if not buffer_key or not facebook_channel_id:
-        print("PUBLISH BLOCKED: Buffer API key or Facebook channel ID is missing.")
+    if not meta_token:
+        print("PUBLISH BLOCKED: Meta Page access token is missing.")
         return False
     if not raw_id.isdigit() or not api_hash or not session:
         print("PUBLISH BLOCKED: Telegram user-session credentials are missing.")
@@ -121,16 +119,26 @@ async def publish_one() -> bool:
         # Confirm each destination independently. A retry skips only a destination
         # that already confirmed this exact source message.
         if not platform_status.get("facebook"):
+            import time
+            last_facebook = state.get("last_facebook_publish_at") or 0
+            try:
+                last_facebook = float(last_facebook)
+            except (TypeError, ValueError):
+                last_facebook = 0
+            if last_facebook and time.time() - last_facebook < 2 * 60:
+                print("PUBLISH BLOCKED: Facebook's two-hour publishing interval has not elapsed.")
+                return False
             try:
                 facebook_id = await asyncio.to_thread(
-                    publish_facebook, buffer_key, facebook_channel_id, caption, None
+                    publish_facebook, meta_token, caption, None
                 )
             except Exception:
                 print("FACEBOOK FAILED: Telegram was not attempted; retry is safe.")
                 return False
             state = mark_platform_published(state, candidate, "facebook", facebook_id)
+            state["last_facebook_publish_at"] = time.time()
             save_state(state)
-            print(f"FACEBOOK CONFIRMED: Buffer post {facebook_id}")
+            print(f"FACEBOOK CONFIRMED: Meta post {facebook_id}")
 
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         if not platform_status.get("telegram"):
