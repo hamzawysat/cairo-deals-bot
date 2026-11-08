@@ -130,10 +130,6 @@ async def publish_pending() -> bool:
     if not raw_id.isdigit() or not api_hash or not session:
         print("AUTO-PUBLISH BLOCKED: Telegram credentials are missing.")
         return False
-    if not meta_token:
-        print("AUTO-PUBLISH BLOCKED: Meta Page access token is missing.")
-        return False
-
     client = TelegramClient(StringSession(session), int(raw_id), api_hash)
     all_ok = True
     try:
