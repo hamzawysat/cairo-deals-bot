@@ -125,7 +125,7 @@ async def publish_one() -> bool:
                 last_facebook = float(last_facebook)
             except (TypeError, ValueError):
                 last_facebook = 0
-            if last_facebook and time.time() - last_facebook < 2 * 60 * 60:
+            if last_facebook and time.time() - last_facebook < 2 * 60:
                 print("PUBLISH BLOCKED: Facebook's two-hour publishing interval has not elapsed.")
                 return False
             try:
