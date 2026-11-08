@@ -80,87 +80,26 @@ def resolve_amazon_product_url(url: str, *, session=None, max_redirects: int=8, 
             try:
                 if response.status_code in (301,302,303,307,308):
                     loc=response.headers.get("Location")
-                    if not loc:
-                        if diagnostics is not None: diagnostics["reason"]="redirect_without_location"
-                        return None
-                    if rn>=max_redirects:
-                        if diagnostics is not None: diagnostics["reason"]="redirect_limit_exceeded"
-                        return None
+                    if not loc: return None
+                    if rn>=max_redirects: return None
                     current=urljoin(current,loc); continue
-                if diagnostics is not None: diagnostics["final_status"]=response.status_code; diagnostics["final_host"]=host; diagnostics["final_path"]=urlparse(current).path[:100]
-                if response.status_code<200 or response.status_code>=300:
-                    if diagnostics is not None: diagnostics["reason"]="http_status_rejected"
-                    return None
+                if response.status_code<200 or response.status_code>=300: return None
                 parsed=urlparse(current); parts=[p for p in parsed.path.split("/") if p]
                 if (parsed.hostname or "").lower()=="link.amazon" and len(parts)==1 and ASIN_RE.fullmatch(parts[0].upper()):
-                    asin=parts[0].upper()
-                    if diagnostics is not None: diagnostics["resolved_asin"]=asin
-                    return asin, f"https://www.amazon.eg/dp/{asin}"
+                    asin=parts[0].upper(); return asin, f"https://www.amazon.eg/dp/{asin}"
                 asin=None
                 for i,part in enumerate(parts[:-1]):
                     if part.lower() in {"dp","product"} and ASIN_RE.fullmatch(parts[i+1].upper()): asin=parts[i+1].upper(); break
                 if asin is None:
                     m=re.search(r"/gp/aw/d/([A-Z0-9]{10})(?:/|$)", parsed.path, re.I)
                     if m: asin=m.group(1).upper()
-                if asin is None:
-                    if diagnostics is not None: diagnostics["reason"]="final_url_has_no_asin"
-                    return None
-                if diagnostics is not None: diagnostics["resolved_asin"]=asin
+                if asin is None: return None
                 return asin, f"https://www.amazon.eg/dp/{asin}"
             finally: response.close()
         return None
-    except requests.RequestException as exc:
-        if diagnostics is not None: diagnostics["reason"]="request_exception"; diagnostics["error_type"]=type(exc).__name__
-        return None
+    except requests.RequestException: return None
     finally:
         if owns: client.close()
-
-
-def resolve_amazon_store_url(url: str, *, session=None, max_redirects: int=8, diagnostics=None, host_resolver=None):
-    """Follow a link.amazon short link; if it lands on a store/category page (not a product), return that page URL with our tag."""
-    client = session or requests.Session()
-    owns = session is None
-    if owns: client.trust_env=False
-    current=url
-    try:
-        for rn in range(max_redirects+1):
-            if not is_allowed_amazon_url(current):
-                if diagnostics is not None: diagnostics["reason"]="redirect_host_not_allowlisted"
-                return None
-            host=(urlparse(current).hostname or "").lower()
-            if not _host_is_public(host, host_resolver):
-                if diagnostics is not None: diagnostics["reason"]="host_dns_not_public"
-                return None
-            response=client.get(current, allow_redirects=False, timeout=(5,12), headers={"User-Agent":"CairoDealsPreview/1.0"}, stream=True)
-            try:
-                if response.status_code in (301,302,303,307,308):
-                    loc=response.headers.get("Location")
-                    if not loc: return None
-                    if rn>=max_redirects: return None
-                    current=urljoin(current,loc); continue
-                if response.status_code<200 or response.status_code>=300: return None
-                parsed=urlparse(current); path=parsed.path or "/"
-                # Only store / category / event / promotion / search pages count as store deals - not product pages
-                if "/dp/" in path or "/gp/product/" in path: return None
-                if not (path.startswith("/stores/") or path.startswith("/events/") or path.startswith("/promotion/") or path.startswith("/s") or path.startswith("/b") or path.startswith("/-/")): return None
-                # Build clean amazon.eg URL with our tracking tag, keep original path
-                from urllib.parse import urlencode
-                q = "tag=cairodeals-21"
-                final = f"https://www.amazon.eg{path}?{q}" if "?" not in current else f"https://www.amazon.eg{path}?{q}"
-                if diagnostics is not None: diagnostics["store_url"]=final; diagnostics["store_path"]=path[:120]
-                return final
-            finally: response.close()
-        return None
-    except requests.RequestException:
-        return None
-    finally:
-        if owns: client.close()
-
-def _make_store_candidate(*, message_id, message_text, ocr_text, store_url, tracking_id, source_channel, name_override=None):
-    name = name_override or extract_product_name(message_text, ocr_text)
-    if not name: return None
-    # Name is brand/category like "تايد" - make it a store deal title
-    return {"source_channel":source_channel,"source_message_id":int(message_id),"product_name_source":name,"asin":None,"store_url":store_url,"advertised_price":None,"currency":None,"price_source":None,"affiliate_url":store_url,"caption_preview":(f"✨ عروض متجر {name} على أمازون\n\n🛒 تصفح كل عروض {name} من هنا:\n{store_url}\n\nالأسعار والتوافر حسب صفحة المتجر عند البائع."),"image_status":"source_image_review_only_not_cleared_for_republication","publishing_performed":False,"review_status":"preview_ready_requires_approved_image_and_human_review","is_store_deal":True,}
 
 def extract_product_name(message_text: str, ocr_text: str=""):
     for source in (message_text or "", ocr_text or ""):
@@ -201,7 +140,7 @@ def _make_candidate(*, message_id, message_text, ocr_text, asin, tracking_id, so
     if not name or not source_price: return None
     price, currency = source_price
     affiliate_url = build_amazon_affiliate_url(asin, tracking_id)
-    return {"source_channel":source_channel,"source_message_id":int(message_id),"product_name_source":name,"asin":asin,"advertised_price":price,"currency":currency,"price_source":"source_message_explicit_currency","affiliate_url":affiliate_url,"caption_preview":(f"✨ عرض جديد من Cairo Deals\n\n📦 {name}\n\n💰 السعر المعلن: {price}\n\n🛒 تفاصيل المنتج والشراء من هنا:\n{affiliate_url}\n\nقد يتغير السعر أو التوافر لدى البائع."),"image_status":"source_image_review_only_not_cleared_for_republication","publishing_performed":False,"review_status":"preview_ready_requires_approved_image_and_human_review",}
+    return {"source_channel":source_channel,"source_message_id":int(message_id),"product_name_source":name,"asin":asin,"advertised_price":price,"currency":currency,"price_source":"source_message_explicit_currency","affiliate_url":affiliate_url,"caption_preview":(f"✨ عرض جديد من Cairo Deals\n\n📦 {name}\n\n💰 السعر المعلن: {price}\n\n🛒 تفاصيل المنتج والشراء من هنا:\n{affiliate_url}\n\nتابعنا: تليجرام https://t.me/cairo_deals | فيسبوك https://www.facebook.com/share/19hQqVpCuG/"),"image_status":"source_image_review_only_not_cleared_for_republication","publishing_performed":False,"review_status":"preview_ready_requires_approved_image_and_human_review",}
 
 def build_source_candidate(*, message_id: int, message_text: str, ocr_text: str="", entity_urls=None, tracking_id: str="cairodeals-21", source_channel: str="@OffersEgyptofficial", resolver=resolve_amazon_product_url):
     # Kept for backward compat: single-product path returns None on multi-ASIN (old tests expect this)
@@ -221,24 +160,12 @@ def build_source_candidates(*, message_id: int, message_text: str, ocr_text: str
     # Also handle generic split: link.amazon + newline + /CODE
     fixed_text = re.sub(r"(link\.amazon)\s*\n\s*(/[A-Za-z0-9]+)", r"\1\2", fixed_text)
     urls=extract_urls(fixed_text, entity_urls); resolved=[]
-    seen=set(); store_out=[]
+    seen=set()
     for url in urls:
         r=resolver(url)
         if r and r[0] not in seen:
             seen.add(r[0]); resolved.append((url, r))
-        elif not r:
-            # Fallback: maybe a store/category link (e.g. Tide store) - not a product, but still earns commission via tag
-            try: store_url = resolve_amazon_store_url(url)
-            except Exception: store_url = None
-            if store_url:
-                nm = _name_for_url(fixed_text, url, ocr_text) or extract_product_name(fixed_text, ocr_text) or "متجر أمازون"
-                sc = _make_store_candidate(message_id=message_id, message_text=fixed_text, ocr_text=ocr_text, store_url=store_url, tracking_id=tracking_id, source_channel=source_channel, name_override=nm)
-                if sc:
-                    sc["source_product_key"]=f"{message_id}:store:{store_url}"
-                    sc["is_split_from_combined"]=True
-                    # dedupe by store_url
-                    if store_url not in seen: seen.add(store_url); store_out.append(sc)
-    if not resolved: return store_out
+    if not resolved: return []
     # Single ASIN -> same as before
     if len(resolved)==1:
         c=_make_candidate(message_id=message_id, message_text=fixed_text, ocr_text=ocr_text, asin=resolved[0][1][0], tracking_id=tracking_id, source_channel=source_channel)
@@ -268,5 +195,4 @@ def build_source_candidates(*, message_id: int, message_text: str, ocr_text: str
             c["source_product_key"]=f"{message_id}:{asin}"
             c["is_split_from_combined"]=True
             out.append(c)
-    out.extend(store_out)
     return out
