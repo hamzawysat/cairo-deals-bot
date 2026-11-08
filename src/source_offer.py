@@ -77,6 +77,23 @@ def is_allowed_amazon_url(url: str) -> bool:
         return False
 
 
+def _asin_from_product_url(url: str) -> str | None:
+    """Extract an ASIN only from a recognized Amazon product path."""
+    parsed = urlparse(url)
+    if (parsed.hostname or "").lower() not in {
+        "amazon.eg", "www.amazon.eg", "m.amazon.eg",
+        "amazon.com", "www.amazon.com", "m.amazon.com",
+        "amazon.sa", "www.amazon.sa", "m.amazon.sa",
+    }:
+        return None
+    parts = [part for part in parsed.path.split("/") if part]
+    for index, part in enumerate(parts[:-1]):
+        if part.lower() in {"dp", "product"} and ASIN_RE.fullmatch(parts[index + 1].upper()):
+            return parts[index + 1].upper()
+    match = re.search(r"/gp/aw/d/([A-Z0-9]{10})(?:/|$)", parsed.path, re.I)
+    return match.group(1).upper() if match else None
+
+
 def extract_urls(text: str, entity_urls: list[str] | None = None) -> list[str]:
     found = []
     for raw in URL_RE.findall(text or "") + (entity_urls or []):
@@ -157,24 +174,28 @@ def resolve_amazon_product_url(
                     diagnostics["final_status"] = response.status_code
                     diagnostics["final_host"] = host
                     diagnostics["final_path"] = urlparse(current).path[:100]
+                parsed = urlparse(current)
+                parts = [part for part in parsed.path.split("/") if part]
                 if response.status_code < 200 or response.status_code >= 300:
+                    # Amazon may return a transient 5xx after redirecting to a canonical
+                    # product URL. Trust only the validated Amazon host and /dp/ASIN path.
+                    asin_from_5xx = (
+                        _asin_from_product_url(current)
+                        if response.status_code in {500, 502, 503, 504}
+                        else None
+                    )
+                    if asin_from_5xx:
+                        if diagnostics is not None:
+                            diagnostics["resolved_asin"] = asin_from_5xx
+                            diagnostics["resolution_from"] = "validated_amazon_product_url_after_5xx"
+                        return asin_from_5xx, f"https://www.amazon.eg/dp/{asin_from_5xx}"
                     if diagnostics is not None:
                         diagnostics["reason"] = "http_status_rejected"
                     return None
-                parsed = urlparse(current)
-                parts = [part for part in parsed.path.split("/") if part]
                 if (parsed.hostname or "").lower() == "link.amazon" and len(parts) == 1 and ASIN_RE.fullmatch(parts[0].upper()):
                     asin = parts[0].upper()
                     return asin, f"https://www.amazon.eg/dp/{asin}"
-                asin = None
-                for index, part in enumerate(parts[:-1]):
-                    if part.lower() in {"dp", "product"} and ASIN_RE.fullmatch(parts[index + 1].upper()):
-                        asin = parts[index + 1].upper()
-                        break
-                if asin is None:
-                    match = re.search(r"/gp/aw/d/([A-Z0-9]{10})(?:/|$)", parsed.path, re.I)
-                    if match:
-                        asin = match.group(1).upper()
+                asin = _asin_from_product_url(current)
                 if asin is None:
                     if diagnostics is not None:
                         diagnostics["reason"] = "final_url_has_no_asin"
