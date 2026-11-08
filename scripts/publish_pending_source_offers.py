@@ -225,6 +225,20 @@ async def publish_pending() -> bool:
             if not platform_status.get("facebook"):
                 if not _facebook_due(state):
                     print(f"FACEBOOK SKIPPED for source {message_id}: less than 2 hours since last Facebook post.")
+                    # FIX: Don't block Telegram queue waiting for Facebook.
+                    # Telegram is done, remove from pending so next Telegram ad can publish.
+                    # Facebook will pick up a later candidate after 2h.
+                    state["pending_candidates"] = [
+                        item for item in state.get("pending_candidates", [])
+                        if str(item.get("source_message_id")) != key
+                    ]
+                    published = {int(value) for value in state.get("published_message_ids", [])}
+                    published.add(message_id)
+                    state["published_message_ids"] = sorted(published)[-1000:]
+                    save_state(state)
+                    processed += 1
+                    print(f"OFFER COMPLETE (Telegram only, Facebook skipped): source message {message_id}.")
+                    continue
                 else:
                     try:
                         # FIX: Buffer needs a direct *.jpg URL, not a Telegram post page (HTML).
