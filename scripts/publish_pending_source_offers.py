@@ -36,6 +36,17 @@ def save_state(state: dict) -> None:
     temporary.replace(STATE_PATH)
 
 
+def _choose_product_title(source_name: str, live_title: str) -> str:
+    """Use Amazon's live title unless it is only a generic storefront label."""
+    source = str(source_name or "").strip()
+    live = str(live_title or "").strip()
+    normalized = " ".join(live.casefold().replace(".", " ").split())
+    generic_titles = {"amazon", "amazon eg", "amazon egypt", "amazon com"}
+    if normalized in generic_titles and source:
+        return source
+    return live or source
+
+
 def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     """Improve ad-copy layout while preserving all supplied product facts and links."""
     name = str(candidate.get("product_name_source") or "").strip()
@@ -182,7 +193,7 @@ async def publish_pending() -> bool:
                     continue
                 candidate = dict(candidate)
                 candidate["advertised_price"] = _live.get("price") or candidate.get("advertised_price")
-                candidate["product_name_source"] = _live["title"]
+                candidate["product_name_source"] = _choose_product_title(candidate.get("product_name_source"), _live["title"])
                 candidate["_live_image_url"] = _live["image_url"]
                 # FIX: rebuild caption at publish time instead of using old stored caption_preview
                 caption = _rebuild_caption(candidate, for_telegram=False)
