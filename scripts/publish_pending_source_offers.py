@@ -1,127 +1,212 @@
 #!/usr/bin/env python3
-"""Read source Telegram posts and build non-publishing, review-only offer previews."""
+"""Publish queued Amazon source offers to the enabled Cairo Deals destinations."""
 from __future__ import annotations
-import asyncio, json, logging, os, re, sys, tempfile
+
+import asyncio
+import json
+import logging
+import os
+import sys
+import tempfile
 from pathlib import Path
-from PIL import Image, ImageEnhance, ImageOps
-import pytesseract
+
 from telethon import TelegramClient
 from telethon.sessions import StringSession
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.source_offer import build_source_candidate, build_source_candidates, extract_product_name, extract_urls, resolve_amazon_product_url
-from src.original_content import extract_egypt_price_text
-from urllib.parse import urlparse
-SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@OffersEgyptofficial")
-POST_LIMIT = 30
-PHOTO_LIMIT = 10
-TRACKING_ID = "cairodeals-21"
+from src.source_publish import mark_platform_published
+from src.source_publisher import publish_facebook, publish_telegram
+from src.telegram_product_card import create_telegram_product_card
 
-def image_ocr(path: str) -> str:
-    with Image.open(path) as source:
-        image = source.convert("RGB")
-        if max(image.size) < 1600:
-            factor = min(2.0, 1600 / max(image.size))
-            image = image.resize((int(image.width*factor), int(image.height*factor)), Image.Resampling.LANCZOS)
-        gray = ImageOps.autocontrast(ImageOps.grayscale(image))
-        enhanced = ImageEnhance.Contrast(gray).enhance(1.5)
-        outputs=[]
-        for candidate in (image, enhanced):
-            for psm in (6, 11):
-                outputs.append(pytesseract.image_to_string(candidate, lang="ara+eng", config=f"--oem 1 --psm {psm}"))
-        return "\n".join(outputs)
+STATE_PATH = Path("artifacts/source-offer-state.json")
+SETTINGS_PATH = Path("config/settings.json")
 
-async def run() -> bool:
-    raw_id=os.environ.get("TELEGRAM_API_ID",""); api_hash=os.environ.get("TELEGRAM_API_HASH",""); session=os.environ.get("TELEGRAM_SESSION","")
+TELEGRAM_LINK = "https://t.me/cairo_deals"
+FACEBOOK_LINK = "https://www.facebook.com/share/19hQqVpCuG/"
+
+
+def load_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def save_state(state: dict) -> None:
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary = STATE_PATH.with_suffix(".tmp")
+    temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(STATE_PATH)
+
+
+def _rebuild_caption(candidate: dict) -> str:
+    """Rebuild caption at publish time so old stored captions don't keep the removed disclaimer.
+
+    Old pending candidates were stored with the removed disclaimer and without
+    the follow links. Rebuilding here makes them publish with the current format.
+    """
+    name = str(candidate.get("product_name_source") or "").strip()
+    price = str(candidate.get("advertised_price") or "").strip()
+    url = str(candidate.get("affiliate_url") or "").strip()
+    if not name or not url:
+        # Fall back to stored caption only if we can't rebuild (should not happen for valid candidates)
+        return str(candidate.get("caption_preview") or "").strip()
+    lines = [
+        "✨ عرض جديد من Cairo Deals",
+        "",
+        f"📦 {name}",
+        "",
+        f"💰 السعر المعلن: {price}" if price else "",
+        "",
+        "🛒 تفاصيل المنتج والشراء من هنا:",
+        url,
+        "",
+        f"تابعنا: تليجرام {TELEGRAM_LINK} | فيسبوك {FACEBOOK_LINK}",
+    ]
+    # Drop the empty price line when there is no price (store offers)
+    return "\n".join([ln for ln in lines if ln != ""])
+
+
+async def publish_pending() -> bool:
+    if os.environ.get("SOURCE_AUTO_PUBLISH_ENABLED", "").strip().lower() != "true":
+        print("AUTO-PUBLISH BLOCKED: repository variable SOURCE_AUTO_PUBLISH_ENABLED is not true.")
+        return False
+
+    try:
+        settings = load_json(SETTINGS_PATH)
+        state = load_json(STATE_PATH) if STATE_PATH.is_file() else {}
+    except (OSError, ValueError):
+        print("AUTO-PUBLISH BLOCKED: settings or delivery state could not be loaded.")
+        return False
+
+    if settings.get("dry_run", True) is not False:
+        print("AUTO-PUBLISH BLOCKED: config/settings.json still has dry_run enabled.")
+        return False
+    channels = settings.get("channels", {})
+    if not channels.get("telegram", {}).get("enabled", False):
+        print("AUTO-PUBLISH BLOCKED: Telegram destination is disabled in config/settings.json.")
+        return False
+    if not channels.get("facebook", {}).get("enabled", False):
+        print("AUTO-PUBLISH BLOCKED: Facebook destination is disabled in config/settings.json.")
+        return False
+    if settings.get("safety", {}).get("require_image", False):
+        print("AUTO-PUBLISH BLOCKED: image reuse is required but no approved product-image source is configured.")
+        return False
+
+    pending = list(state.get("pending_candidates", []))
+    if not pending:
+        print("AUTO-PUBLISH: no eligible pending Amazon offers.")
+        return True
+
+    max_posts = settings.get("max_posts_per_run", 1)
+    try:
+        max_posts = max(1, min(int(max_posts), 10))
+    except (TypeError, ValueError):
+        max_posts = 1
+
+    raw_id = os.environ.get("TELEGRAM_API_ID", "")
+    api_hash = os.environ.get("TELEGRAM_API_HASH", "")
+    session = os.environ.get("TELEGRAM_SESSION", "")
+    buffer_key = os.environ.get("BUFFER_API_KEY", "")
+    facebook_channel_id = str(channels.get("facebook", {}).get("channel_id") or "").strip()
     if not raw_id.isdigit() or not api_hash or not session:
-        print("PREVIEW FAILED: Telegram secrets are missing."); return False
-    client=TelegramClient(StringSession(session), int(raw_id), api_hash)
-    candidates=[]; seen_messages=set(); state_path=Path("artifacts/source-offer-state.json")
-    try: prior_state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
-    except (OSError, ValueError): prior_state={}
-    prior_message_ids={int(v) for v in prior_state.get("published_message_ids",[])}
-    pending_candidates=list(prior_state.get("pending_candidates",[]))
-    pending_message_ids={int(i.get("source_message_id",0)) for i in pending_candidates if isinstance(i,dict)}
-    pending_keys={str(i.get("source_product_key", i.get("source_message_id"))) for i in pending_candidates if isinstance(i,dict)}
-    last_seen_message_id=int(prior_state.get("last_seen_message_id",0) or 0)
-    highest_seen_message_id=last_seen_message_id; duplicate_skipped=0
-    rejected={"no_resolved_asin_or_ambiguous":0,"missing_name_or_egp_price":0,"photo_ocr_failed":0}
-    rejection_details=[]; photo_count=0
+        print("AUTO-PUBLISH BLOCKED: Telegram credentials are missing.")
+        return False
+    if not buffer_key or not facebook_channel_id:
+        print("AUTO-PUBLISH BLOCKED: Buffer credentials or Facebook channel ID are missing.")
+        return False
+
+    client = TelegramClient(StringSession(session), int(raw_id), api_hash)
+    all_ok = True
     try:
         await asyncio.wait_for(client.connect(), timeout=25)
         if not await client.is_user_authorized():
-            print("PREVIEW FAILED: Telegram session is not authorized."); return False
-        source=await asyncio.wait_for(client.get_entity(SOURCE_CHANNEL), timeout=20)
-        with tempfile.TemporaryDirectory(prefix="cairo-source-preview-") as temp_dir:
-            async for message in client.iter_messages(source, limit=POST_LIMIT):
-                if message.id in seen_messages: continue
-                seen_messages.add(message.id)
-                highest_seen_message_id=max(highest_seen_message_id, int(message.id))
-                if int(message.id) <= last_seen_message_id: continue
-                body=message.message or ""
-                entity_urls=[e.url for e in (message.entities or []) if getattr(e,"url",None)]
-                ocr_text=""
-                if message.photo and photo_count < PHOTO_LIMIT:
-                    photo_count+=1
-                    try:
-                        path=str(Path(temp_dir)/f"source_{message.id}.jpg")
-                        downloaded=await asyncio.wait_for(client.download_media(message, file=path), timeout=30)
-                        if downloaded and Path(downloaded).is_file(): ocr_text=image_ocr(downloaded)
-                    except Exception: rejected["photo_ocr_failed"]+=1
-                urls=extract_urls(body, entity_urls)
-                resolution_cache={}; resolution_diagnostics={}
-                def cached_resolver(url):
-                    if url not in resolution_cache:
-                        details={}; resolution_cache[url]=resolve_amazon_product_url(url, diagnostics=details); resolution_diagnostics[url]=details
-                    return resolution_cache[url]
-                # ===== FIXED PART: split combined ads instead of rejecting them =====
-                try:
-                    candidates_for_message=build_source_candidates(message_id=message.id, message_text=body, ocr_text=ocr_text, entity_urls=entity_urls, tracking_id=TRACKING_ID, source_channel=SOURCE_CHANNEL, resolver=cached_resolver)
-                except Exception:
-                    candidates_for_message=[]
-                if not candidates_for_message:
-                    combined_text=body+"\n"+ocr_text
-                    resolved_asins=sorted({v[0] for v in resolution_cache.values() if v})
-                    name_candidate=extract_product_name(body, ocr_text)
-                    price_candidate=extract_egypt_price_text(combined_text)
-                    if not urls or not resolved_asins: reason="no_resolved_amazon_product_link"; rejected["no_resolved_asin_or_ambiguous"]+=1
-                    elif len(resolved_asins)!=1: reason="multiple_product_asins_split_failed_no_price"; rejected["no_resolved_asin_or_ambiguous"]+=1
-                    elif not name_candidate: reason="missing_product_name"; rejected["missing_name_or_egp_price"]+=1
-                    elif not price_candidate: reason="missing_explicit_egp_price"; rejected["missing_name_or_egp_price"]+=1
-                    else: reason="preview_builder_rejected_candidate"; rejected["missing_name_or_egp_price"]+=1
-                    rejection_details.append({"message_id":message.id,"reason":reason,"url_hosts":sorted({(urlparse(u).hostname or "unknown").lower() for u in urls}),"url_count":len(urls),"resolved_asins":resolved_asins,"resolution_debug":list(resolution_diagnostics.values()),"name_candidate":name_candidate,"egp_price_candidate":price_candidate,"ocr_used":bool(ocr_text),"ocr_excerpt":ocr_text[:350] if ocr_text else "","message_excerpt":body[:350],})
-                    continue
-                # success: one candidate per ASIN
-                for candidate in candidates_for_message:
-                    key=str(candidate.get("source_product_key", candidate.get("source_message_id")))
-                    if key in pending_keys:
-                        duplicate_skipped+=1; continue
-                    candidate["source_post_url"]=f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
-                    candidate["source_date"]=message.date.isoformat() if message.date else None
-                    candidate["ocr_used"]=bool(ocr_text)
-                    candidates.append(candidate); pending_keys.add(key)
-                # ===== END FIXED PART =====
-        pending_by_key={str(i.get("source_product_key", i.get("source_message_id"))): i for i in pending_candidates if isinstance(i,dict)}
-        for item in candidates: pending_by_key[str(item.get("source_product_key", item.get("source_message_id")))]=item
-        pending_candidates=list(pending_by_key.values())
-        output=Path("artifacts/source-offer-previews.json"); output.parent.mkdir(parents=True, exist_ok=True)
-        state_path.write_text(json.dumps({"last_seen_message_id":highest_seen_message_id,"published_message_ids":prior_state.get("published_message_ids",[]),"platform_status":prior_state.get("platform_status",{}),"pending_candidates":pending_candidates,}, ensure_ascii=False, indent=2), encoding="utf-8")
-        report={"source_channel":SOURCE_CHANNEL,"posts_scanned":len(seen_messages),"photos_ocr_attempted":photo_count,"candidate_count":len(candidates),"duplicate_candidates_skipped":duplicate_skipped,"rejected_counts":rejected,"rejections":rejection_details,"candidates":pending_candidates,"pending_candidate_count":len(pending_candidates),"publishing_performed":False,"destination_channels_touched":[],"image_reuse_policy":"source images are OCR evidence only and are not cleared for republication",}
-        output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"PREVIEW BUILD PASSED: {len(seen_messages)} source posts scanned.")
-        print(f"New review-ready product candidates: {len(candidates)}")
-        print(f"Pending offers retained for delivery: {len(pending_candidates)}")
-        print(f"Photos OCR attempted: {photo_count}")
-        print("No Telegram messages were sent, edited, or deleted.")
-        print("No Facebook, WhatsApp, or destination channel was contacted.")
-        print("Source photos were used only for OCR and are not included for republication.")
-        return True
-    except Exception:
-        print("PREVIEW FAILED: source read or preview generation failed; details suppressed."); return False
-    finally:
-        if client.is_connected(): await client.disconnect()
+            print("AUTO-PUBLISH BLOCKED: Telegram session is not authorized.")
+            return False
+        target = await asyncio.wait_for(
+            client.get_entity(os.environ.get("TARGET_TELEGRAM_CHANNEL", "@cairo_deals")),
+            timeout=20,
+        )
 
-if __name__=="__main__":
+        processed = 0
+        attempted = 0
+        for candidate in pending:
+            if attempted >= max_posts:
+                break
+            attempted += 1
+            try:
+                message_id = int(candidate["source_message_id"])
+                # FIX: rebuild caption at publish time instead of using old stored caption_preview
+                caption = _rebuild_caption(candidate)
+                if not caption or not candidate.get("affiliate_url") or not candidate.get("asin"):
+                    print(f"SKIPPED source message {message_id}: candidate data is incomplete.")
+                    continue
+            except (KeyError, TypeError, ValueError):
+                print("SKIPPED malformed pending candidate.")
+                continue
+
+            key = str(message_id)
+            platform_status = dict(state.get("platform_status", {}).get(key, {}))
+            if not platform_status.get("facebook"):
+                try:
+                    facebook_id = await asyncio.to_thread(
+                        publish_facebook, buffer_key, facebook_channel_id, caption, None
+                    )
+                    state = mark_platform_published(state, candidate, "facebook", facebook_id)
+                    save_state(state)
+                    print(f"FACEBOOK CONFIRMED for source {message_id}: {facebook_id}")
+                except Exception as exc:
+                    all_ok = False
+                    print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
+                    continue
+
+            platform_status = dict(state.get("platform_status", {}).get(key, {}))
+            if not platform_status.get("telegram"):
+                try:
+                    # Telegram gets a generated product card; never fall back to text-only delivery.
+                    with tempfile.TemporaryDirectory(prefix="cairo-telegram-card-") as temp_dir:
+                        card_path = create_telegram_product_card(
+                            asin=str(candidate["asin"]),
+                            product_name=str(candidate["product_name_source"]),
+                            price=str(candidate["advertised_price"]),
+                            output_path=Path(temp_dir) / "telegram-product-card.jpg",
+                        )
+                        telegram_id = await asyncio.wait_for(
+                            publish_telegram(client, target, caption, str(card_path)), timeout=60
+                        )
+                    state = mark_platform_published(state, candidate, "telegram", telegram_id)
+                    save_state(state)
+                    print(f"TELEGRAM CONFIRMED for source {message_id}: {telegram_id}")
+                except Exception as exc:
+                    all_ok = False
+                    print(f"TELEGRAM FAILED for source {message_id}: {type(exc).__name__}")
+                    continue
+
+            final_status = state.get("platform_status", {}).get(key, {})
+            if final_status.get("facebook") and final_status.get("telegram"):
+                published = {int(value) for value in state.get("published_message_ids", [])}
+                published.add(message_id)
+                state["published_message_ids"] = sorted(published)[-1000:]
+                state["pending_candidates"] = [
+                    item for item in state.get("pending_candidates", [])
+                    if str(item.get("source_message_id")) != key
+                ]
+                save_state(state)
+                processed += 1
+                print(f"OFFER COMPLETE: source message {message_id} delivered to both destinations.")
+
+        print(f"AUTO-PUBLISH FINISHED: {processed} offer(s) completed this run.")
+        return all_ok
+    except Exception as exc:
+        print(f"AUTO-PUBLISH FAILED: {type(exc).__name__}; pending offers were retained.")
+        return False
+    finally:
+        if client.is_connected():
+            await client.disconnect()
+
+
+if __name__ == "__main__":
     logging.disable(logging.CRITICAL)
-    try: ok=asyncio.run(run())
-    except Exception: print("PREVIEW FAILED: safe startup failure; details suppressed."); ok=False
-    sys.exit(0 if ok else 1)
+    try:
+        success = asyncio.run(publish_pending())
+    except Exception:
+        print("AUTO-PUBLISH FAILED: safe startup failure.")
+        success = False
+    sys.exit(0 if success else 1)
