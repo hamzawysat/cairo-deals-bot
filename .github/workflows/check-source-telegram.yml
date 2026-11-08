@@ -1,5 +1,7 @@
 name: Cron-triggered source offer monitoring and publishing
 on:
+  schedule:
+    - cron: "0 */2 * * *"
   pull_request:
     paths:
       - "scripts/build_source_offer_previews.py"
@@ -58,7 +60,7 @@ jobs:
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
         run: python scripts/build_source_offer_previews.py
       - name: Automatically publish queued Amazon offers
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
         env:
           SOURCE_AUTO_PUBLISH_ENABLED: "true"
           TARGET_TELEGRAM_CHANNEL: "@cairo_deals"
