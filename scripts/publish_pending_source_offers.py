@@ -241,7 +241,7 @@ async def publish_pending() -> bool:
                     except Exception as exc:
                         all_ok = False
                         deferred_candidates.append(candidate)
-                        print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}; queued for retry.")
+                        print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}: {str(exc)[:1000]}; queued for retry.")
                         continue
             final_status = state.get("platform_status", {}).get(key, {})
             if final_status.get("telegram") and final_status.get("facebook"):
