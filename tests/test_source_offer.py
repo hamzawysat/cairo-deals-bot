@@ -199,6 +199,26 @@ def test_candidate_uses_configured_source_channel():
     assert candidate["source_channel"] == "@OffersEgyptofficial"
 
 
+def test_resolver_accepts_asin_from_validated_amazon_product_url_after_503():
+    class Unavailable:
+        status_code = 503
+        headers = {}
+        def close(self):
+            pass
+    class Session:
+        def get(self, *args, **kwargs):
+            return Unavailable()
+    diagnostics = {}
+    result = resolve_amazon_product_url(
+        "https://www.amazon.eg/dp/B0ABC12345",
+        session=Session(),
+        diagnostics=diagnostics,
+        host_resolver=PUBLIC_DNS,
+    )
+    assert result == ("B0ABC12345", "https://www.amazon.eg/dp/B0ABC12345")
+    assert diagnostics["resolution_from"] == "validated_amazon_product_url_after_5xx"
+
+
 def test_resolver_rejects_non_2xx_final_response():
     class NotModified:
         status_code = 304
