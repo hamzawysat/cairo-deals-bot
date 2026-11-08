@@ -142,8 +142,8 @@ def create_telegram_product_card(
     session=None,
 ) -> Path:
     """Create a branded card using the existing product image, name, and price."""
-    name = re.sub(r"\\s+", " ", (product_name or "")).strip()
-    amount = re.sub(r"\\s+", " ", (price or "")).strip()
+    name = re.sub(r"\s+", " ", (product_name or "")).strip()
+    amount = re.sub(r"\s+", " ", (price or "")).strip()
     if not name or len(name) > 120 or not amount or len(amount) > 40:
         raise ValueError("Product name or advertised price is invalid")
 
