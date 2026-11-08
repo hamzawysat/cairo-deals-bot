@@ -18,10 +18,10 @@ async def publish_telegram(
     """Publish with the authenticated Telegram user session."""
     if photo_path:
         message = await telegram_client.send_file(
-            target_entity, photo_path, caption=caption, force_document=False
+            target_entity, photo_path, caption=caption, force_document=False, parse_mode="md"
         )
     else:
         message = await telegram_client.send_message(
-            target_entity, caption, link_preview=True
+            target_entity, caption, link_preview=True, parse_mode="md"
         )
     return str(message.id)
