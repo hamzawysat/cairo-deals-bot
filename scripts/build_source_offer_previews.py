@@ -13,7 +13,7 @@ from src.original_content import extract_egypt_price_text
 from urllib.parse import urlparse
 SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@OffersEgyptofficial")
 POST_LIMIT = 30
-PHOTO_LIMIT = 10
+PHOTO_LIMIT = 30
 TRACKING_ID = "cairodeals-21"
 
 def image_ocr(path: str) -> str:
@@ -100,11 +100,24 @@ async def run() -> bool:
                     candidate["ocr_used"]=bool(ocr_text)
                     candidates.append(candidate); pending_keys.add(key)
                 # ===== END FIXED PART =====
+        # FIX: Don't lose rejected posts forever. If a post was rejected (coffee machine,
+        # market offers), keep last_seen below it so next run retries it.
+        # Previously last_seen jumped past rejected posts and they were never retried.
+        if rejection_details:
+            _min_rejected = min(int(d.get("message_id", 0) or 0) for d in rejection_details if int(d.get("message_id", 0) or 0) > 0)
+            if _min_rejected > 0:
+                highest_seen_message_id = min(highest_seen_message_id, _min_rejected - 1)
+                # Never go backwards below the previous last_seen if all rejections are old
+                highest_seen_message_id = max(highest_seen_message_id, last_seen_message_id)
+                # If the only rejected is the newest, we still retry it: keep last_seen at previous
+                if highest_seen_message_id == last_seen_message_id and _min_rejected > last_seen_message_id:
+                    # Keep last_seen as-is, so rejected newest will be rescanned
+                    pass
         pending_by_key={str(i.get("source_product_key", i.get("source_message_id"))): i for i in pending_candidates if isinstance(i,dict)}
         for item in candidates: pending_by_key[str(item.get("source_product_key", item.get("source_message_id")))]=item
         pending_candidates=list(pending_by_key.values())
         output=Path("artifacts/source-offer-previews.json"); output.parent.mkdir(parents=True, exist_ok=True)
-        state_path.write_text(json.dumps({"last_seen_message_id":highest_seen_message_id,"published_message_ids":prior_state.get("published_message_ids",[]),"platform_status":prior_state.get("platform_status",{}),"pending_candidates":pending_candidates,}, ensure_ascii=False, indent=2), encoding="utf-8")
+        state_path.write_text(json.dumps({"last_seen_message_id":highest_seen_message_id,"published_message_ids":prior_state.get("published_message_ids",[]),"platform_status": prior_state.get("platform_status", {}),"pending_candidates":pending_candidates,}, ensure_ascii=False, indent=2), encoding="utf-8")
         report={"source_channel":SOURCE_CHANNEL,"posts_scanned":len(seen_messages),"photos_ocr_attempted":photo_count,"candidate_count":len(candidates),"duplicate_candidates_skipped":duplicate_skipped,"rejected_counts":rejected,"rejections":rejection_details,"candidates":pending_candidates,"pending_candidate_count":len(pending_candidates),"publishing_performed":False,"destination_channels_touched":[],"image_reuse_policy":"source images are OCR evidence only and are not cleared for republication",}
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"PREVIEW BUILD PASSED: {len(seen_messages)} source posts scanned.")
