@@ -43,34 +43,24 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     url = str(candidate.get("affiliate_url") or "").strip()
     if not name or not url:
         return str(candidate.get("caption_preview") or "").strip()
+
     # Keep the exact supplied price text and affiliate URL; only presentation changes.
     price_text = price if "جنيه" in price else (f"{price} جنيه" if price else "")
+    lines = [f"🛍️ {name}", ""]
+    if price_text:
+        lines.extend([f"💰 السعر: {price_text}", ""])
+    lines.extend([f"🔗 لينك العرض والشراء: {url}", "", "تابع عروض Cairo Deals اليومية:"])
     if for_telegram:
-        lines = [
-            f"🛍️ {name}",
-            "",
-            f"💰 السعر: {price_text}" if price_text else "",
-            "",
-            f"🔗 لينك العرض والشراء: {url}",
-            "",
-            "تابع عروض Cairo Deals اليومية:",
+        lines.extend([
             f"📲 تيليجرام: [اضغط هنا]({TELEGRAM_LINK})",
             f"📘 فيسبوك: [اضغط هنا]({FACEBOOK_LINK})",
-        ]
+        ])
     else:
-        lines = [
-            f"🛍️ {name}",
-            "",
-            f"💰 السعر: {price_text}" if price_text else "",
-            "",
-            f"🔗 لينك العرض والشراء: {url}",
-            "",
-            "تابع عروض Cairo Deals اليومية:",
+        lines.extend([
             f"📲 تيليجرام: {TELEGRAM_LINK}",
             f"📘 فيسبوك: {FACEBOOK_LINK}",
-        ]
-    return "\n".join([line for line in lines if line != ""])
-
+        ])
+    return "\n".join(lines).strip()
 
 
 FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60  # Facebook every 2 hours, Telegram stays every 2 minutes
