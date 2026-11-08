@@ -80,24 +80,38 @@ def resolve_amazon_product_url(url: str, *, session=None, max_redirects: int=8, 
             try:
                 if response.status_code in (301,302,303,307,308):
                     loc=response.headers.get("Location")
-                    if not loc: return None
-                    if rn>=max_redirects: return None
+                    if not loc:
+                        if diagnostics is not None: diagnostics["reason"]="redirect_without_location"
+                        return None
+                    if rn>=max_redirects:
+                        if diagnostics is not None: diagnostics["reason"]="redirect_limit_exceeded"
+                        return None
                     current=urljoin(current,loc); continue
-                if response.status_code<200 or response.status_code>=300: return None
+                if diagnostics is not None: diagnostics["final_status"]=response.status_code; diagnostics["final_host"]=host; diagnostics["final_path"]=urlparse(current).path[:100]
+                if response.status_code<200 or response.status_code>=300:
+                    if diagnostics is not None: diagnostics["reason"]="http_status_rejected"
+                    return None
                 parsed=urlparse(current); parts=[p for p in parsed.path.split("/") if p]
                 if (parsed.hostname or "").lower()=="link.amazon" and len(parts)==1 and ASIN_RE.fullmatch(parts[0].upper()):
-                    asin=parts[0].upper(); return asin, f"https://www.amazon.eg/dp/{asin}"
+                    asin=parts[0].upper()
+                    if diagnostics is not None: diagnostics["resolved_asin"]=asin
+                    return asin, f"https://www.amazon.eg/dp/{asin}"
                 asin=None
                 for i,part in enumerate(parts[:-1]):
                     if part.lower() in {"dp","product"} and ASIN_RE.fullmatch(parts[i+1].upper()): asin=parts[i+1].upper(); break
                 if asin is None:
                     m=re.search(r"/gp/aw/d/([A-Z0-9]{10})(?:/|$)", parsed.path, re.I)
                     if m: asin=m.group(1).upper()
-                if asin is None: return None
+                if asin is None:
+                    if diagnostics is not None: diagnostics["reason"]="final_url_has_no_asin"
+                    return None
+                if diagnostics is not None: diagnostics["resolved_asin"]=asin
                 return asin, f"https://www.amazon.eg/dp/{asin}"
             finally: response.close()
         return None
-    except requests.RequestException: return None
+    except requests.RequestException as exc:
+        if diagnostics is not None: diagnostics["reason"]="request_exception"; diagnostics["error_type"]=type(exc).__name__
+        return None
     finally:
         if owns: client.close()
 
