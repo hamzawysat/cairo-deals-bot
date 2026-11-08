@@ -35,7 +35,7 @@ def test_product_image_url_must_come_from_amazon_cdn():
         find_amazon_product_image("B0ABC12345", session=session)
 
 
-def test_card_is_vertical_and_keeps_product_image_inside(tmp_path, monkeypatch):
+def test_card_is_compact_and_keeps_product_image_inside(tmp_path, monkeypatch):
     import src.telegram_product_card as cards
 
     product = Image.new("RGB", (1600, 500), "white")
@@ -50,7 +50,8 @@ def test_card_is_vertical_and_keeps_product_image_inside(tmp_path, monkeypatch):
     )
     assert result == output
     with Image.open(output) as card:
-        assert card.size == (1080, 1350)
+        assert card.size == (1080, 900)
+        assert card.width > card.height
         # The wide source image must remain contained rather than stretched/cropped.
         assert card.getpixel((540, 480)) != (32, 33, 36)
 
