@@ -63,7 +63,6 @@ async def run() -> bool:
     client = TelegramClient(StringSession(session), int(raw_id), api_hash)
     candidates = []
     seen_messages = set()
-    seen_asins = set()
     state_path = Path("artifacts/source-offer-state.json")
     try:
         prior_state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
@@ -71,7 +70,6 @@ async def run() -> bool:
         prior_state = {}
     # A preview is not a publication: keep candidates eligible until actually posted.
     prior_message_ids = {int(value) for value in prior_state.get("published_message_ids", [])}
-    prior_asins = {str(value).upper() for value in prior_state.get("published_asins", [])}
     last_seen_message_id = int(prior_state.get("last_seen_message_id", 0) or 0)
     highest_seen_message_id = last_seen_message_id
     duplicate_skipped = 0
@@ -170,14 +168,10 @@ async def run() -> bool:
                         "message_excerpt": body[:350],
                     })
                     continue
-                if (
-                    candidate["asin"] in seen_asins
-                    or candidate["asin"] in prior_asins
-                    or message.id in prior_message_ids
-                ):
+                # A new source message remains eligible even if its ASIN appeared before.
+                if message.id in prior_message_ids:
                     duplicate_skipped += 1
                     continue
-                seen_asins.add(candidate["asin"])
                 candidate["source_post_url"] = f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
                 candidate["source_date"] = message.date.isoformat() if message.date else None
                 candidate["ocr_used"] = bool(ocr_text)
@@ -189,6 +183,7 @@ async def run() -> bool:
             "last_seen_message_id": highest_seen_message_id,
             "published_message_ids": prior_state.get("published_message_ids", []),
             "published_asins": prior_state.get("published_asins", []),
+            "platform_status": prior_state.get("platform_status", {}),
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         report = {
             "source_channel": SOURCE_CHANNEL,
