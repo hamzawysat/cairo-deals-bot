@@ -1,5 +1,12 @@
 name: Cron-triggered source offer monitoring and publishing
 on:
+  pull_request:
+    paths:
+      - "scripts/build_source_offer_previews.py"
+      - "src/source_offer.py"
+      - "tests/**"
+      - "requirements.txt"
+      - ".github/workflows/check-source-telegram.yml"
   workflow_dispatch:
     inputs:
       publish_one:
