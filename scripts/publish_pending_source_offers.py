@@ -275,7 +275,8 @@ async def publish_pending() -> bool:
             save_state(state)
             print(f"RETRY QUEUE UPDATED: {len(deferred_candidates)} offer(s) moved behind the next candidate.")
         print(f"AUTO-PUBLISH FINISHED: {processed} offer(s) completed this run.")
-        return all_ok
+        # A transient failure must not mark the whole run failed if a later offer was delivered.
+        return processed > 0 or not deferred_candidates
     except Exception as exc:
         print(f"AUTO-PUBLISH FAILED: {type(exc).__name__}; pending offers were retained.")
         return False
