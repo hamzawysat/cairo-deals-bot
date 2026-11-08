@@ -35,16 +35,16 @@ def validate_approved_image_record(record: dict | None) -> str | None:
 
 
 def select_unpublished_candidate(report: dict, state: dict) -> dict | None:
-    """Select exactly one new candidate, excluding previously published ASINs/messages."""
+    """Select a candidate unless this exact source message was fully published."""
     published_ids = {int(value) for value in state.get("published_message_ids", [])}
-    published_asins = {str(value).upper() for value in state.get("published_asins", [])}
     for candidate in report.get("candidates", []):
         try:
             message_id = int(candidate["source_message_id"])
             asin = str(candidate["asin"]).upper()
         except (KeyError, TypeError, ValueError):
             continue
-        if message_id in published_ids or asin in published_asins:
+        status = state.get("platform_status", {}).get(str(message_id), {})
+        if message_id in published_ids or (status.get("facebook") and status.get("telegram")):
             continue
         if candidate.get("publishing_performed") is not False:
             continue
@@ -57,12 +57,9 @@ def select_unpublished_candidate(report: dict, state: dict) -> dict | None:
 def mark_candidate_published(state: dict, candidate: dict) -> dict:
     """Return updated dedupe state after the destination confirms delivery."""
     message_ids = {int(value) for value in state.get("published_message_ids", [])}
-    asins = {str(value).upper() for value in state.get("published_asins", [])}
     message_ids.add(int(candidate["source_message_id"]))
-    asins.add(str(candidate["asin"]).upper())
     updated = dict(state)
     updated["published_message_ids"] = sorted(message_ids)[-1000:]
-    updated["published_asins"] = sorted(asins)[-1000:]
     return updated
 
 
@@ -80,9 +77,6 @@ def mark_platform_published(state: dict, candidate: dict, platform: str, remote_
     updated["platform_status"] = statuses
     if item.get("telegram") and item.get("facebook"):
         message_ids = {int(value) for value in updated.get("published_message_ids", [])}
-        asins = {str(value).upper() for value in updated.get("published_asins", [])}
         message_ids.add(int(candidate["source_message_id"]))
-        asins.add(str(candidate["asin"]).upper())
         updated["published_message_ids"] = sorted(message_ids)[-1000:]
-        updated["published_asins"] = sorted(asins)[-1000:]
     return updated
