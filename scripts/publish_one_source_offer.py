@@ -13,13 +13,16 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.source_offer import build_source_candidate
 from src.source_publish import mark_platform_published, select_unpublished_candidate
 from src.source_publisher import publish_facebook, publish_telegram
 
 REPORT_PATH = Path("artifacts/source-offer-previews.json")
 STATE_PATH = Path("artifacts/source-offer-state.json")
 SETTINGS_PATH = Path("config/settings.json")
+SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@OffersEgyptofficial")
 TARGET_CHANNEL = os.environ.get("TARGET_TELEGRAM_CHANNEL", "@cairo_deals")
+TRACKING_ID = "cairodeals-21"
 
 
 def load_json(path: Path) -> dict:
@@ -50,18 +53,6 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: enter the exact source post ID you reviewed.")
         return False
     selected_id = int(raw_source_id)
-    selected_report = {
-        **report,
-        "candidates": [
-            item for item in report.get("candidates", [])
-            if str(item.get("source_message_id", "")) == str(selected_id)
-        ],
-    }
-    candidate = select_unpublished_candidate(selected_report, state)
-    if not candidate:
-        print("PUBLISH BLOCKED: selected source post is absent, invalid, or already published.")
-        return False
-
     buffer_key = os.environ.get("BUFFER_API_KEY", "")
     facebook_cfg = settings.get("channels", {}).get("facebook", {})
     facebook_channel_id = str(facebook_cfg.get("channel_id") or "").strip()
@@ -75,17 +66,60 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: Telegram user-session credentials are missing.")
         return False
 
-    message_key = str(candidate["source_message_id"])
-    platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
-    caption = str(candidate.get("caption_preview") or "").strip()
-    if not caption:
-        print("PUBLISH BLOCKED: candidate caption is empty.")
-        return False
-
     client = TelegramClient(StringSession(session), int(raw_id), api_hash)
     try:
-        # Publish Facebook first. Its confirmed ID is saved immediately so a Telegram
-        # failure can be retried without creating a duplicate Facebook post.
+        await asyncio.wait_for(client.connect(), timeout=25)
+        if not await client.is_user_authorized():
+            print("TELEGRAM BLOCKED: user session is not authorized.")
+            return False
+
+        # Use the preview if present; otherwise fetch the exact requested source post.
+        selected_report = {
+            **report,
+            "candidates": [
+                item for item in report.get("candidates", [])
+                if str(item.get("source_message_id", "")) == str(selected_id)
+            ],
+        }
+        candidate = select_unpublished_candidate(selected_report, state)
+        if candidate is None:
+            source = await asyncio.wait_for(client.get_entity(SOURCE_CHANNEL), timeout=20)
+            message = await asyncio.wait_for(
+                client.get_messages(source, ids=selected_id), timeout=20
+            )
+            if message is None or int(message.id) != selected_id:
+                print("PUBLISH BLOCKED: exact source message was not found.")
+                return False
+            body = message.message or ""
+            entity_urls = [
+                entity.url for entity in (message.entities or [])
+                if getattr(entity, "url", None)
+            ]
+            candidate = build_source_candidate(
+                message_id=message.id,
+                message_text=body,
+                entity_urls=entity_urls,
+                tracking_id=TRACKING_ID,
+                source_channel=SOURCE_CHANNEL,
+            ) if body.strip() else None
+            if candidate is None:
+                print("PUBLISH BLOCKED: source post needs a valid Amazon link, product name, and EGP price.")
+                return False
+            candidate["source_post_url"] = f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
+            candidate = select_unpublished_candidate({"candidates": [candidate]}, state)
+            if candidate is None:
+                print("PUBLISH BLOCKED: this exact source message was already fully published.")
+                return False
+
+        message_key = str(candidate["source_message_id"])
+        platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
+        caption = str(candidate.get("caption_preview") or "").strip()
+        if not caption:
+            print("PUBLISH BLOCKED: candidate caption is empty.")
+            return False
+
+        # Confirm each destination independently. A retry skips only a destination
+        # that already confirmed this exact source message.
         if not platform_status.get("facebook"):
             try:
                 facebook_id = await asyncio.to_thread(
@@ -100,10 +134,6 @@ async def publish_one() -> bool:
 
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         if not platform_status.get("telegram"):
-            await asyncio.wait_for(client.connect(), timeout=25)
-            if not await client.is_user_authorized():
-                print("TELEGRAM BLOCKED: user session is not authorized.")
-                return False
             target = await asyncio.wait_for(client.get_entity(TARGET_CHANNEL), timeout=20)
             telegram_id = await asyncio.wait_for(
                 publish_telegram(client, target, caption, None), timeout=45
