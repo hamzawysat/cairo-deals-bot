@@ -53,15 +53,6 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: enter the exact source post ID you reviewed.")
         return False
     selected_id = int(raw_source_id)
-    import time
-    last_facebook = state.get("last_facebook_publish_at") or 0
-    try:
-        last_facebook = float(last_facebook)
-    except (TypeError, ValueError):
-        last_facebook = 0
-    if last_facebook and time.time() - last_facebook < 2 * 60 * 60:
-        print("PUBLISH BLOCKED: Facebook's two-hour publishing interval has not elapsed.")
-        return False
     meta_token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
     raw_id = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
@@ -128,6 +119,15 @@ async def publish_one() -> bool:
         # Confirm each destination independently. A retry skips only a destination
         # that already confirmed this exact source message.
         if not platform_status.get("facebook"):
+            import time
+            last_facebook = state.get("last_facebook_publish_at") or 0
+            try:
+                last_facebook = float(last_facebook)
+            except (TypeError, ValueError):
+                last_facebook = 0
+            if last_facebook and time.time() - last_facebook < 2 * 60 * 60:
+                print("PUBLISH BLOCKED: Facebook's two-hour publishing interval has not elapsed.")
+                return False
             try:
                 facebook_id = await asyncio.to_thread(
                     publish_facebook, meta_token, caption, None
