@@ -69,6 +69,44 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     return "\n".join([ln for ln in lines if ln != ""])
 
 
+
+FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60  # Facebook every 2 hours, Telegram stays every 2 minutes
+
+def _facebook_due(state: dict) -> bool:
+    """True if Facebook hasn't published in the last 2 hours (or never)."""
+    import time
+    last = state.get("last_facebook_publish_at") or 0
+    try:
+        last = float(last)
+    except (TypeError, ValueError):
+        return True
+    return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
+
+def _telegram_post_url(telegram_id: str) -> str | None:
+    """Public link to the Telegram post - Buffer uses it to fetch the card image."""
+    tid = str(telegram_id or "").strip()
+    if not tid.isdigit():
+        return None
+    return f"https://t.me/cairo_deals/{tid}"
+
+
+FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60
+
+def _facebook_due(state: dict) -> bool:
+    import time
+    last = state.get("last_facebook_publish_at") or 0
+    try:
+        last = float(last)
+    except (TypeError, ValueError):
+        return True
+    return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
+
+def _telegram_post_url(telegram_id: str) -> str | None:
+    tid = str(telegram_id or "").strip()
+    if not tid.isdigit():
+        return None
+    return f"https://t.me/cairo_deals/{tid}"
+
 async def publish_pending() -> bool:
     if os.environ.get("SOURCE_AUTO_PUBLISH_ENABLED", "").strip().lower() != "true":
         print("AUTO-PUBLISH BLOCKED: repository variable SOURCE_AUTO_PUBLISH_ENABLED is not true.")
@@ -149,24 +187,12 @@ async def publish_pending() -> bool:
                 continue
 
             key = str(message_id)
+            # NEW ORDER: Telegram first, then Facebook takes image link from Telegram.
+            # Telegram every run. Facebook only if 2 hours passed since last Facebook post.
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
-            if not platform_status.get("facebook"):
+            telegram_id = platform_status.get("telegram")
+            if not telegram_id:
                 try:
-                    facebook_id = await asyncio.to_thread(
-                        publish_facebook, buffer_key, facebook_channel_id, caption, None
-                    )
-                    state = mark_platform_published(state, candidate, "facebook", facebook_id)
-                    save_state(state)
-                    print(f"FACEBOOK CONFIRMED for source {message_id}: {facebook_id}")
-                except Exception as exc:
-                    all_ok = False
-                    print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
-                    continue
-
-            platform_status = dict(state.get("platform_status", {}).get(key, {}))
-            if not platform_status.get("telegram"):
-                try:
-                    # Telegram gets a generated product card; never fall back to text-only delivery.
                     with tempfile.TemporaryDirectory(prefix="cairo-telegram-card-") as temp_dir:
                         card_path = create_telegram_product_card(
                             asin=str(candidate["asin"]),
@@ -184,9 +210,27 @@ async def publish_pending() -> bool:
                     all_ok = False
                     print(f"TELEGRAM FAILED for source {message_id}: {type(exc).__name__}")
                     continue
-
+            platform_status = dict(state.get("platform_status", {}).get(key, {}))
+            if not platform_status.get("facebook"):
+                if not _facebook_due(state):
+                    print(f"FACEBOOK SKIPPED for source {message_id}: less than 2 hours since last Facebook post.")
+                else:
+                    try:
+                        photo_url = _telegram_post_url(str(telegram_id or platform_status.get("telegram") or ""))
+                        facebook_id = await asyncio.to_thread(
+                            publish_facebook, buffer_key, facebook_channel_id, caption, photo_url
+                        )
+                        state = mark_platform_published(state, candidate, "facebook", facebook_id)
+                        import time as _time
+                        state["last_facebook_publish_at"] = _time.time()
+                        save_state(state)
+                        print(f"FACEBOOK CONFIRMED for source {message_id}: {facebook_id}")
+                    except Exception as exc:
+                        all_ok = False
+                        print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
+                        continue
             final_status = state.get("platform_status", {}).get(key, {})
-            if final_status.get("facebook") and final_status.get("telegram"):
+            if final_status.get("telegram") and (final_status.get("facebook") or not _facebook_due(state)):
                 published = {int(value) for value in state.get("published_message_ids", [])}
                 published.add(message_id)
                 state["published_message_ids"] = sorted(published)[-1000:]
