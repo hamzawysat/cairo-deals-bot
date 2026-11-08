@@ -53,6 +53,9 @@ async def publish_pending() -> bool:
     if not channels.get("facebook", {}).get("enabled", False):
         print("AUTO-PUBLISH BLOCKED: Facebook destination is disabled in config/settings.json.")
         return False
+    if settings.get("safety", {}).get("require_image", False):
+        print("AUTO-PUBLISH BLOCKED: image reuse is required but no approved product-image source is configured.")
+        return False
 
     pending = list(state.get("pending_candidates", []))
     if not pending:
@@ -90,9 +93,11 @@ async def publish_pending() -> bool:
         )
 
         processed = 0
+        attempted = 0
         for candidate in pending:
-            if processed >= max_posts:
+            if attempted >= max_posts:
                 break
+            attempted += 1
             try:
                 message_id = int(candidate["source_message_id"])
                 caption = str(candidate.get("caption_preview") or "").strip()
