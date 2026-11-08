@@ -9,7 +9,13 @@ import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 PRODUCT_PAGE = "https://www.amazon.eg/dp/{asin}"
 IMAGE_HOSTS = {"m.media-amazon.com","images-na.ssl-images-amazon.com","images-eu.ssl-images-amazon.com",}
-CARD_SIZE = (1080, 900)
+CARD_SIZE = (1080, 1350)
+
+BLUE = "#0757B8"
+DARK_BLUE = "#12345A"
+YELLOW = "#FFC928"
+RED = "#E53935"
+INK = "#172B45"
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
 USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_deals)"
 class _ImageParser(HTMLParser):
@@ -95,19 +101,101 @@ def _fit_font(draw, text: str, max_width: int, start: int, min_size: int = 30):
         font = _font(size, bold=True)
         if draw.textbbox((0, 0), text, font=font, direction="rtl", language="ar")[2] <= max_width: return font
     return _font(min_size, bold=True)
-def create_telegram_product_card(*, asin: str, product_name: str, price: str, output_path: str | Path, image_url: str | None = None, session=None) -> Path:
-    # Simplified card: product image only, no text inside image, no black bar.
-    # Name/price/links are already in the caption below, so drawing them again
-    # inside the image only caused RTL clipping, boxes and cut digits.
-    name = re.sub(r"\s+", " ", (product_name or "")).strip(); amount = re.sub(r"\s+", " ", (price or "")).strip()
-    if not name or len(name) > 120 or not amount or len(amount) > 40: raise ValueError("Product name or advertised price is invalid")
+
+
+
+def _text_width(draw: ImageDraw.ImageDraw, text: str, font) -> float:
+    try:
+        return draw.textlength(text, font=font, direction="rtl", language="ar")
+    except (TypeError, ValueError):
+        return draw.textlength(text, font=font)
+
+
+def _draw_rtl(draw: ImageDraw.ImageDraw, xy, text: str, font, fill, anchor="mm"):
+    try:
+        draw.text(xy, text, font=font, fill=fill, anchor=anchor, direction="rtl", language="ar")
+    except (TypeError, ValueError):
+        draw.text(xy, text, font=font, fill=fill, anchor=anchor)
+
+
+def _wrap_name(draw: ImageDraw.ImageDraw, name: str, font, max_width: int) -> list[str]:
+    words = name.split()
+    lines = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and _text_width(draw, candidate, font) > max_width:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines[:2] or [name[:50]]
+def create_telegram_product_card(
+    *,
+    asin: str,
+    product_name: str,
+    price: str,
+    output_path: str | Path,
+    image_url: str | None = None,
+    session=None,
+) -> Path:
+    """Create a branded card using the existing product image, name, and price."""
+    name = re.sub(r"\s+", " ", (product_name or "")).strip()
+    amount = re.sub(r"\s+", " ", (price or "")).strip()
+    if not name or len(name) > 120 or not amount or len(amount) > 40:
+        raise ValueError("Product name or advertised price is invalid")
+
+    # Keep the current image source; fit the complete image without cropping.
     product_url = image_url or find_amazon_product_image(asin, session=session)
     product = _load_product_image(product_url, session=session)
-    canvas = Image.new("RGB", CARD_SIZE, "white")
-    fitted = ImageOps.contain(product, (1080 - 40, 900 - 40))
-    x = (1080 - fitted.width) // 2
-    y = (900 - fitted.height) // 2
-    canvas.paste(fitted, (x, y))
-    destination = Path(output_path); destination.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(destination, format="JPEG", quality=92, optimize=True)
+
+    canvas = Image.new("RGB", CARD_SIZE, "#F7FAFF")
+    draw = ImageDraw.Draw(canvas)
+
+    # Brand header.
+    draw.rounded_rectangle((42, 34, 1038, 166), radius=34, fill="white", outline="#DCE9F8", width=3)
+    draw.ellipse((70, 60, 150, 140), fill=BLUE)
+    draw.line((91, 84, 101, 84, 111, 112, 135, 112), fill="white", width=6)
+    draw.line((105, 96, 132, 96), fill="white", width=5)
+    draw.ellipse((111, 119, 120, 128), fill=YELLOW)
+    draw.ellipse((130, 119, 139, 128), fill=YELLOW)
+    draw.text((178, 67), "Cairo", font=_font(42, True), fill=BLUE)
+    draw.text((178, 111), "Deals", font=_font(34, True), fill=RED)
+    draw.rounded_rectangle((690, 69, 990, 130), radius=28, fill=YELLOW)
+    _draw_rtl(draw, (840, 100), "عرض جديد", _font(34, True), DARK_BLUE)
+
+    # Full product image, contained inside a clean white frame.
+    draw.rounded_rectangle((42, 194, 1038, 876), radius=38, fill="white", outline="#DCE9F8", width=3)
+    image_area = (88, 226, 992, 844)
+    fitted = ImageOps.contain(
+        product,
+        (image_area[2] - image_area[0], image_area[3] - image_area[1]),
+        method=Image.Resampling.LANCZOS,
+    )
+    image_x = image_area[0] + (image_area[2] - image_area[0] - fitted.width) // 2
+    image_y = image_area[1] + (image_area[3] - image_area[1] - fitted.height) // 2
+    canvas.paste(fitted, (image_x, image_y))
+
+    # Product name from the existing source flow.
+    title_font = _font(47, True)
+    title_lines = _wrap_name(draw, name, title_font, 930)
+    title_y = 930
+    for line in title_lines:
+        fitted_font = _fit_font(draw, line, 930, 47, 30)
+        _draw_rtl(draw, (540, title_y), line, fitted_font, INK)
+        title_y += 62
+
+    # Show only the supplied price; never invent a previous price or discount.
+    draw.rounded_rectangle((180, 1072, 900, 1200), radius=34, fill=RED)
+    _draw_rtl(draw, (540, 1136), amount, _fit_font(draw, amount, 650, 68, 38), "white")
+
+    draw.rounded_rectangle((42, 1230, 1038, 1320), radius=30, fill=BLUE)
+    footer = "رابط الشراء المباشر في نص الإعلان"
+    _draw_rtl(draw, (540, 1275), footer, _fit_font(draw, footer, 900, 35, 25), "white")
+
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(destination, format="JPEG", quality=93, optimize=True)
     return destination

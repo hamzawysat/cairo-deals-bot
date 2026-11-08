@@ -35,7 +35,7 @@ def test_product_image_url_must_come_from_amazon_cdn():
         find_amazon_product_image("B0ABC12345", session=session)
 
 
-def test_card_is_compact_and_keeps_product_image_inside(tmp_path, monkeypatch):
+def test_card_is_vertical_and_keeps_product_image_inside(tmp_path, monkeypatch):
     import src.telegram_product_card as cards
 
     product = Image.new("RGB", (1600, 500), "white")
@@ -50,10 +50,9 @@ def test_card_is_compact_and_keeps_product_image_inside(tmp_path, monkeypatch):
     )
     assert result == output
     with Image.open(output) as card:
-        assert card.size == (1080, 900)
-        assert card.width > card.height
+        assert card.size == (1080, 1350)
         # The wide source image must remain contained rather than stretched/cropped.
-        assert card.getpixel((540, 480)) != (32, 33, 36)
+        assert card.getpixel((540, 500)) != (23, 52, 90)
 
 
 def test_card_rejects_invalid_product_details(tmp_path):
@@ -65,3 +64,23 @@ def test_card_rejects_invalid_product_details(tmp_path):
             image_url="https://m.media-amazon.com/images/I/example.jpg",
             output_path=tmp_path / "bad.jpg",
         )
+
+
+def test_caption_changes_only_presentation_and_keeps_original_links():
+    from scripts.publish_pending_source_offers import _rebuild_caption
+
+    candidate = {
+        "product_name_source": "زيت عباد الشمس",
+        "advertised_price": "432 جنيه",
+        "affiliate_url": "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21",
+    }
+    telegram = _rebuild_caption(candidate, for_telegram=True)
+    facebook = _rebuild_caption(candidate, for_telegram=False)
+
+    assert "زيت عباد الشمس" in telegram
+    assert "432 جنيه" in telegram
+    assert "\n\n" in telegram
+    assert candidate["affiliate_url"] in telegram
+    assert candidate["affiliate_url"] in facebook
+    assert "https://t.me/cairo_deals" in telegram
+    assert "https://www.facebook.com/share/19hQqVpCuG/" in facebook
