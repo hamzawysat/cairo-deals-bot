@@ -60,13 +60,10 @@ but Telegram fails (or vice versa), the next manual retry skips the destination
 already confirmed and attempts only the unfinished one. A successful full
 delivery marks the source message and ASIN as published.
 
-The workflow remains review-only on its schedule. No automatic live publishing
-is enabled by these changes.
+The scheduled source-monitor workflow can automatically publish queued offers. Telegram delivery retains its existing cadence; Facebook is attempted only when two hours have elapsed since the last confirmed Facebook post. The external Cron Console trigger remains unchanged.
 
 ## State and operational limits
 
 GitHub Actions cache is used as best-effort deduplication between scheduled
 runs; it is not a transactional database and cannot guarantee exactly-once
-delivery after an interrupted network request. A permanent unattended listener
-requires a long-running host and durable database. No live post is performed
-by the normal workflow.
+delivery after an interrupted network request. A permanent unattended listener requires a long-running host and durable database. GitHub Actions cache remains best-effort state storage.
