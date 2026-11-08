@@ -17,6 +17,7 @@ PHOTO_LIMIT = 30
 TRACKING_ID = "cairodeals-21"
 
 def image_ocr(path: str) -> str:
+    """Run two complementary OCR layouts on one enhanced grayscale image."""
     with Image.open(path) as source:
         image = source.convert("RGB")
         if max(image.size) < 1600:
@@ -24,11 +25,25 @@ def image_ocr(path: str) -> str:
             image = image.resize((int(image.width*factor), int(image.height*factor)), Image.Resampling.LANCZOS)
         gray = ImageOps.autocontrast(ImageOps.grayscale(image))
         enhanced = ImageEnhance.Contrast(gray).enhance(1.5)
-        outputs=[]
-        for candidate in (image, enhanced):
-            for psm in (6, 11):
-                outputs.append(pytesseract.image_to_string(candidate, lang="ara+eng", config=f"--oem 1 --psm {psm}"))
+        outputs = [
+            pytesseract.image_to_string(
+                enhanced, lang="ara+eng", config=f"--oem 1 --psm {psm}"
+            )
+            for psm in (6, 11)
+        ]
         return "\n".join(outputs)
+
+
+def remember_ocr_text(cache: dict, message_id: int, text: str, limit: int = 120) -> None:
+    """Keep a bounded, insertion-ordered OCR cache keyed by source message ID."""
+    cache[str(message_id)] = text
+    while len(cache) > limit:
+        cache.pop(next(iter(cache)))
+
+
+def cached_ocr_text(cache: dict, message_id: int):
+    """Return cached OCR text, including an intentionally cached empty result."""
+    return cache.get(str(message_id))
 
 async def run() -> bool:
     raw_id=os.environ.get("TELEGRAM_API_ID",""); api_hash=os.environ.get("TELEGRAM_API_HASH",""); session=os.environ.get("TELEGRAM_SESSION","")
@@ -39,6 +54,12 @@ async def run() -> bool:
     try: prior_state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
     except (OSError, ValueError): prior_state={}
     prior_message_ids={int(v) for v in prior_state.get("published_message_ids",[])}
+    ocr_cache = {
+        str(k): str(v)
+        for k, v in (prior_state.get("ocr_cache", {}) or {}).items()
+        if str(k).isdigit() and isinstance(v, str)
+    }
+    ocr_cache_hits = 0
     pending_candidates=list(prior_state.get("pending_candidates",[]))
     pending_message_ids={int(i.get("source_message_id",0)) for i in pending_candidates if isinstance(i,dict)}
     pending_keys={str(i.get("source_product_key", i.get("source_message_id"))) for i in pending_candidates if isinstance(i,dict)}
@@ -60,13 +81,21 @@ async def run() -> bool:
                 body=message.message or ""
                 entity_urls=[e.url for e in (message.entities or []) if getattr(e,"url",None)]
                 ocr_text=""
-                if message.photo and photo_count < PHOTO_LIMIT:
-                    photo_count+=1
-                    try:
-                        path=str(Path(temp_dir)/f"source_{message.id}.jpg")
-                        downloaded=await asyncio.wait_for(client.download_media(message, file=path), timeout=30)
-                        if downloaded and Path(downloaded).is_file(): ocr_text=image_ocr(downloaded)
-                    except Exception: rejected["photo_ocr_failed"]+=1
+                if message.photo:
+                    cached_text = cached_ocr_text(ocr_cache, message.id)
+                    if cached_text is not None:
+                        ocr_text = cached_text
+                        ocr_cache_hits += 1
+                    elif photo_count < PHOTO_LIMIT:
+                        photo_count += 1
+                        try:
+                            path=str(Path(temp_dir)/f"source_{message.id}.jpg")
+                            downloaded=await asyncio.wait_for(client.download_media(message, file=path), timeout=30)
+                            if downloaded and Path(downloaded).is_file():
+                                ocr_text=image_ocr(downloaded)
+                                remember_ocr_text(ocr_cache, message.id, ocr_text)
+                        except Exception:
+                            rejected["photo_ocr_failed"]+=1
                 urls=extract_urls(body, entity_urls)
                 resolution_cache={}; resolution_diagnostics={}
                 def cached_resolver(url):
@@ -117,13 +146,14 @@ async def run() -> bool:
         for item in candidates: pending_by_key[str(item.get("source_product_key", item.get("source_message_id")))]=item
         pending_candidates=list(pending_by_key.values())
         output=Path("artifacts/source-offer-previews.json"); output.parent.mkdir(parents=True, exist_ok=True)
-        state_path.write_text(json.dumps({"last_seen_message_id":highest_seen_message_id,"published_message_ids":prior_state.get("published_message_ids",[]),"platform_status": prior_state.get("platform_status", {}),"pending_candidates":pending_candidates,}, ensure_ascii=False, indent=2), encoding="utf-8")
+        state_path.write_text(json.dumps({"last_seen_message_id":highest_seen_message_id,"published_message_ids":prior_state.get("published_message_ids",[]),"platform_status": prior_state.get("platform_status", {}),"pending_candidates":pending_candidates,"ocr_cache":ocr_cache,}, ensure_ascii=False, indent=2), encoding="utf-8")
         report={"source_channel":SOURCE_CHANNEL,"posts_scanned":len(seen_messages),"photos_ocr_attempted":photo_count,"candidate_count":len(candidates),"duplicate_candidates_skipped":duplicate_skipped,"rejected_counts":rejected,"rejections":rejection_details,"candidates":pending_candidates,"pending_candidate_count":len(pending_candidates),"publishing_performed":False,"destination_channels_touched":[],"image_reuse_policy":"source images are OCR evidence only and are not cleared for republication",}
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"PREVIEW BUILD PASSED: {len(seen_messages)} source posts scanned.")
         print(f"New review-ready product candidates: {len(candidates)}")
         print(f"Pending offers retained for delivery: {len(pending_candidates)}")
         print(f"Photos OCR attempted: {photo_count}")
+        print(f"Cached OCR results reused: {ocr_cache_hits}")
         print("No Telegram messages were sent, edited, or deleted.")
         print("No Facebook, WhatsApp, or destination channel was contacted.")
         print("Source photos were used only for OCR and are not included for republication.")
