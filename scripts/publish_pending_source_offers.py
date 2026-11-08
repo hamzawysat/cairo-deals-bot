@@ -14,7 +14,7 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.source_publish import mark_platform_published
+from src.source_publish import defer_candidates_for_retry, mark_platform_published
 from src.source_publisher import publish_facebook, publish_telegram
 from src.telegram_product_card import create_telegram_product_card, find_amazon_product_details
 
@@ -162,11 +162,10 @@ async def publish_pending() -> bool:
         )
 
         processed = 0
-        attempted = 0
+        deferred_candidates = []
         for candidate in pending:
-            if attempted >= max_posts:
+            if processed >= max_posts:
                 break
-            attempted += 1
             try:
                 message_id = int(candidate["source_message_id"])
                 # FIX: image + name + price must come from SAME Amazon page (same ASIN).
@@ -178,7 +177,8 @@ async def publish_pending() -> bool:
                 except Exception:
                     _live = {}
                 if not _live.get("title") or not _live.get("image_url"):
-                    print(f"SKIPPED source message {candidate.get('source_message_id')}: live Amazon title/image missing - would mismatch image vs caption.")
+                    print(f"RETRY QUEUED source message {candidate.get('source_message_id')}: live Amazon title/image missing; image is mandatory.")
+                    deferred_candidates.append(candidate)
                     continue
                 candidate = dict(candidate)
                 candidate["advertised_price"] = _live.get("price") or candidate.get("advertised_price")
@@ -217,7 +217,8 @@ async def publish_pending() -> bool:
                     print(f"TELEGRAM CONFIRMED for source {message_id}: {telegram_id}")
                 except Exception as exc:
                     all_ok = False
-                    print(f"TELEGRAM FAILED for source {message_id}: {type(exc).__name__}")
+                    deferred_candidates.append(candidate)
+                    print(f"TELEGRAM FAILED for source {message_id}: {type(exc).__name__}; queued for retry.")
                     continue
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             if not platform_status.get("facebook"):
@@ -251,7 +252,8 @@ async def publish_pending() -> bool:
                         print(f"FACEBOOK CONFIRMED for source {message_id}: {facebook_id}")
                     except Exception as exc:
                         all_ok = False
-                        print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
+                        deferred_candidates.append(candidate)
+                        print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}; queued for retry.")
                         continue
             final_status = state.get("platform_status", {}).get(key, {})
             if final_status.get("telegram") and final_status.get("facebook"):
@@ -266,6 +268,12 @@ async def publish_pending() -> bool:
                 processed += 1
                 print(f"OFFER COMPLETE: source message {message_id} delivered to both destinations.")
 
+        if deferred_candidates:
+            state["pending_candidates"] = defer_candidates_for_retry(
+                state.get("pending_candidates", pending), deferred_candidates
+            )
+            save_state(state)
+            print(f"RETRY QUEUE UPDATED: {len(deferred_candidates)} offer(s) moved behind the next candidate.")
         print(f"AUTO-PUBLISH FINISHED: {processed} offer(s) completed this run.")
         return all_ok
     except Exception as exc:
