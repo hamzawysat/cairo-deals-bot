@@ -36,18 +36,24 @@ def save_state(state: dict) -> None:
     temporary.replace(STATE_PATH)
 
 
-def _rebuild_caption(candidate: dict) -> str:
+def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     """Rebuild caption at publish time so old stored captions don't keep the removed disclaimer.
 
     Old pending candidates were stored with the removed disclaimer and without
     the follow links. Rebuilding here makes them publish with the current format.
+    For Telegram, links are embedded in the words (Markdown) so the long URLs
+    don't eat the whole ad. For Facebook/Buffer, plain URLs are kept because
+    Buffer treats the caption as plain text.
     """
     name = str(candidate.get("product_name_source") or "").strip()
     price = str(candidate.get("advertised_price") or "").strip()
     url = str(candidate.get("affiliate_url") or "").strip()
     if not name or not url:
-        # Fall back to stored caption only if we can't rebuild (should not happen for valid candidates)
         return str(candidate.get("caption_preview") or "").strip()
+    if for_telegram:
+        follow = f"[تابعنا على تليجرام]({TELEGRAM_LINK}) | [تابعنا على فيسبوك]({FACEBOOK_LINK})"
+    else:
+        follow = f"تابعنا: تليجرام {TELEGRAM_LINK} | فيسبوك {FACEBOOK_LINK}"
     lines = [
         "✨ عرض جديد من Cairo Deals",
         "",
@@ -58,9 +64,8 @@ def _rebuild_caption(candidate: dict) -> str:
         "🛒 تفاصيل المنتج والشراء من هنا:",
         url,
         "",
-        f"تابعنا: تليجرام {TELEGRAM_LINK} | فيسبوك {FACEBOOK_LINK}",
+        follow,
     ]
-    # Drop the empty price line when there is no price (store offers)
     return "\n".join([ln for ln in lines if ln != ""])
 
 
@@ -134,7 +139,8 @@ async def publish_pending() -> bool:
             try:
                 message_id = int(candidate["source_message_id"])
                 # FIX: rebuild caption at publish time instead of using old stored caption_preview
-                caption = _rebuild_caption(candidate)
+                caption = _rebuild_caption(candidate, for_telegram=False)
+                telegram_caption = _rebuild_caption(candidate, for_telegram=True)
                 if not caption or not candidate.get("affiliate_url") or not candidate.get("asin"):
                     print(f"SKIPPED source message {message_id}: candidate data is incomplete.")
                     continue
@@ -169,7 +175,7 @@ async def publish_pending() -> bool:
                             output_path=Path(temp_dir) / "telegram-product-card.jpg",
                         )
                         telegram_id = await asyncio.wait_for(
-                            publish_telegram(client, target, caption, str(card_path)), timeout=60
+                            publish_telegram(client, target, telegram_caption, str(card_path)), timeout=60
                         )
                     state = mark_platform_published(state, candidate, "telegram", telegram_id)
                     save_state(state)
