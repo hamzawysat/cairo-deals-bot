@@ -276,3 +276,20 @@ def test_product_name_removes_ocr_prefix_and_dangling_price_particle():
 
 def test_product_name_rejects_purchase_quantity_cta_fragment():
     assert extract_product_name("بـ للقطعة لما تشتري 3") is None
+
+
+def test_old_unhandled_source_posts_are_reprocessed_below_cursor():
+    from scripts.build_source_offer_previews import should_process_source_message
+
+    # The former last_seen_message_id cursor must not suppress an unhandled post.
+    assert should_process_source_message(120, set(), set())
+    assert not should_process_source_message(120, {120}, set())
+    assert not should_process_source_message(120, set(), {120})
+
+
+def test_pending_and_published_source_posts_are_not_reprocessed():
+    from scripts.build_source_offer_previews import should_process_source_message
+
+    assert not should_process_source_message(55, {55}, set())
+    assert not should_process_source_message(56, set(), {56})
+    assert should_process_source_message(57, {55}, {56})
