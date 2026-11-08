@@ -37,7 +37,7 @@ def test_image_rejects_unapproved_hosts_and_non_https():
     }) is None
 
 
-def test_only_one_unpublished_candidate_is_selected():
+def test_exact_message_is_skipped_but_next_message_is_selected():
     candidate = {
         "source_message_id": 22,
         "asin": "B0ABC12345",
@@ -46,7 +46,7 @@ def test_only_one_unpublished_candidate_is_selected():
         "publishing_performed": False,
     }
     report = {"candidates": [candidate, dict(candidate, source_message_id=23, asin="C0ABC12345")]}
-    selected = select_unpublished_candidate(report, {"published_asins": ["B0ABC12345"]})
+    selected = select_unpublished_candidate(report, {"published_message_ids": [22], "published_asins": ["B0ABC12345"]})
     assert selected["source_message_id"] == 23
 
 
@@ -64,11 +64,10 @@ def test_published_candidate_is_not_selected_again():
     ) is None
 
 
-def test_publish_state_marks_message_and_asin_only_after_confirmation():
+def test_publish_state_marks_only_the_exact_message():
     candidate = {"source_message_id": 22, "asin": "B0ABC12345"}
     updated = mark_candidate_published({}, candidate)
     assert updated["published_message_ids"] == [22]
-    assert updated["published_asins"] == ["B0ABC12345"]
 
 
 def test_source_publisher_scripts_are_valid_python():
@@ -97,7 +96,6 @@ def test_platform_delivery_state_allows_safe_partial_retry():
     assert status["facebook"] == "buffer-123"
     assert status["telegram"] == "telegram-456"
     assert state["published_message_ids"] == [22]
-    assert state["published_asins"] == ["B0ABC12345"]
 
 
 def test_same_product_from_new_source_message_is_allowed():
