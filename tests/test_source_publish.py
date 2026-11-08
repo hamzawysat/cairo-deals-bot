@@ -98,3 +98,25 @@ def test_platform_delivery_state_allows_safe_partial_retry():
     assert status["telegram"] == "telegram-456"
     assert state["published_message_ids"] == [22]
     assert state["published_asins"] == ["B0ABC12345"]
+
+
+def test_same_product_from_new_source_message_is_allowed():
+    candidate = {
+        "source_message_id": 23,
+        "asin": "B0ABC12345",
+        "affiliate_url": "https://www.amazon.eg/dp/B0ABC12345?tag=cairodeals-21",
+        "caption_preview": "عرض جديد",
+        "publishing_performed": False,
+    }
+    selected = select_unpublished_candidate(
+        {"candidates": [candidate]},
+        {"published_message_ids": [22], "published_asins": ["B0ABC12345"]},
+    )
+    assert selected["source_message_id"] == 23
+
+
+def test_preview_state_preserves_partial_delivery_records():
+    from pathlib import Path
+    content = Path("scripts/build_source_offer_previews.py").read_text(encoding="utf-8")
+    assert '"platform_status": prior_state.get("platform_status", {})' in content
+    assert 'candidate["asin"] in prior_asins' not in content
