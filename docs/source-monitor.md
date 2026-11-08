@@ -45,13 +45,23 @@ Example entry (replace with a real, authorized image and permission record):
 ## One-item publishing
 
 Use **Actions → Build source offer previews → Run workflow**. Keep
-`publish_one` unchecked for preview-only operation. Checking it opts into one
-Telegram post to `@cairo_deals`, but the job still stops unless the report
-contains a new candidate and the ASIN has an approved image manifest entry.
-The publisher never forwards or republishes the source-channel photo.
+`publish_one` unchecked for preview-only operation. Checking it is an explicit
+manual approval to publish exactly one review-ready offer as a text post to
+`@cairo_deals` and the configured Facebook page through Buffer.
 
-The one-item action is separate from the existing scheduled product publisher.
-It does not change the existing offer cadence or its Facebook/Buffer flow.
+The publisher requires the Telegram user session, `BUFFER_API_KEY`, and the
+Facebook channel ID in `config/settings.json`. It does not copy the source
+channel photo. The product link is included in the Arabic caption; Telegram
+and Facebook may render their own link previews. This text-only fallback avoids
+reusing an image without documented rights.
+
+Each destination confirmation is saved independently. If Facebook succeeds
+but Telegram fails (or vice versa), the next manual retry skips the destination
+already confirmed and attempts only the unfinished one. A successful full
+delivery marks the source message and ASIN as published.
+
+The workflow remains review-only on its schedule. No automatic live publishing
+is enabled by these changes.
 
 ## State and operational limits
 
