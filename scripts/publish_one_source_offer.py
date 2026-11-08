@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.source_offer import build_source_candidate
 from src.source_publish import mark_platform_published, select_unpublished_candidate
 from src.source_publisher import publish_facebook, publish_telegram
+from src.telegram_product_card import create_telegram_product_card, find_amazon_product_details
+import tempfile
 
 REPORT_PATH = Path("artifacts/source-offer-previews.json")
 STATE_PATH = Path("artifacts/source-offer-state.json")
@@ -112,6 +114,13 @@ async def publish_one() -> bool:
         message_key = str(candidate["source_message_id"])
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         caption = str(candidate.get("caption_preview") or "").strip()
+        live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
+        if not live.get("title") or not live.get("image_url"):
+            print("PUBLISH BLOCKED: matching Amazon product image/title could not be verified.")
+            return False
+        image_url = str(live["image_url"])
+        product_name = str(candidate.get("product_name_source") or live["title"])
+        product_price = str(live.get("price") or candidate.get("advertised_price") or "")
         if not caption:
             print("PUBLISH BLOCKED: candidate caption is empty.")
             return False
@@ -130,7 +139,7 @@ async def publish_one() -> bool:
                 return False
             try:
                 facebook_id = await asyncio.to_thread(
-                    publish_facebook, meta_token, caption, None
+                    publish_facebook, meta_token, caption, image_url
                 )
             except Exception:
                 print("FACEBOOK FAILED: Telegram was not attempted; retry is safe.")
@@ -141,11 +150,33 @@ async def publish_one() -> bool:
             print(f"FACEBOOK CONFIRMED: Meta post {facebook_id}")
 
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
-        if not platform_status.get("telegram"):
-            target = await asyncio.wait_for(client.get_entity(TARGET_CHANNEL), timeout=20)
-            telegram_id = await asyncio.wait_for(
-                publish_telegram(client, target, caption, None), timeout=45
-            )
+        target = await asyncio.wait_for(client.get_entity(TARGET_CHANNEL), timeout=20)
+        saved_telegram_id = platform_status.get("telegram")
+        if saved_telegram_id:
+            try:
+                existing = await asyncio.wait_for(
+                    client.get_messages(target, ids=int(saved_telegram_id)), timeout=20
+                )
+            except (TypeError, ValueError):
+                existing = None
+            if existing is None:
+                platform_status.pop("telegram", None)
+                state.setdefault("platform_status", {})[message_key] = platform_status
+                save_state(state)
+                saved_telegram_id = None
+                print("TELEGRAM STALE STATUS CLEARED: saved destination message does not exist.")
+        if not saved_telegram_id:
+            with tempfile.TemporaryDirectory(prefix="cairo-manual-card-") as temp_dir:
+                card_path = create_telegram_product_card(
+                    asin=str(candidate["asin"]),
+                    product_name=product_name,
+                    price=product_price,
+                    output_path=Path(temp_dir) / "telegram-product-card.jpg",
+                    image_url=image_url,
+                )
+                telegram_id = await asyncio.wait_for(
+                    publish_telegram(client, target, caption, str(card_path)), timeout=60
+                )
             state = mark_platform_published(state, candidate, "telegram", telegram_id)
             save_state(state)
             print(f"TELEGRAM CONFIRMED: destination message {telegram_id}")
