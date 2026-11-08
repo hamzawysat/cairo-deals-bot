@@ -45,9 +45,21 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: preview, state, or channel settings are unavailable.")
         return False
 
-    candidate = select_unpublished_candidate(report, state)
+    raw_source_id = os.environ.get("SOURCE_MESSAGE_ID", "").strip()
+    if not raw_source_id.isdigit():
+        print("PUBLISH BLOCKED: enter the exact source post ID you reviewed.")
+        return False
+    selected_id = int(raw_source_id)
+    selected_report = {
+        **report,
+        "candidates": [
+            item for item in report.get("candidates", [])
+            if int(item.get("source_message_id", -1)) == selected_id
+        ],
+    }
+    candidate = select_unpublished_candidate(selected_report, state)
     if not candidate:
-        print("PUBLISH BLOCKED: no new review-ready source offer is available.")
+        print("PUBLISH BLOCKED: selected source post is absent, invalid, or already published.")
         return False
 
     buffer_key = os.environ.get("BUFFER_API_KEY", "")
