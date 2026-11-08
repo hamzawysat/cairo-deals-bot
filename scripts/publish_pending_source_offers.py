@@ -37,20 +37,17 @@ def save_state(state: dict) -> None:
 
 
 def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
-    """Format the ad copy without changing its supplied product facts or destinations."""
+    """Improve ad-copy layout while preserving all supplied product facts and links."""
     name = str(candidate.get("product_name_source") or "").strip()
     price = str(candidate.get("advertised_price") or "").strip()
     url = str(candidate.get("affiliate_url") or "").strip()
     if not name or not url:
         return str(candidate.get("caption_preview") or "").strip()
-
     # Keep the exact supplied price text and affiliate URL; only presentation changes.
     price_text = price if "جنيه" in price else (f"{price} جنيه" if price else "")
-    title = f"{name} ب {price_text}" if price_text else name
-
     if for_telegram:
         lines = [
-            f"🛍️ {title}",
+            f"🛍️ {name}",
             "",
             f"💰 السعر: {price_text}" if price_text else "",
             "",
@@ -62,7 +59,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
         ]
     else:
         lines = [
-            f"🛍️ {title}",
+            f"🛍️ {name}",
             "",
             f"💰 السعر: {price_text}" if price_text else "",
             "",
@@ -72,11 +69,11 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
             f"📲 تيليجرام: {TELEGRAM_LINK}",
             f"📘 فيسبوك: {FACEBOOK_LINK}",
         ]
-    return "\n".join(line for line in lines if line != "")
+    return "\n".join([line for line in lines if line != ""])
+
 
 
 FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60  # Facebook every 2 hours, Telegram stays every 2 minutes
-
 
 def _facebook_due(state: dict) -> bool:
     """True if Facebook hasn't published in the last 2 hours (or never)."""
@@ -88,7 +85,6 @@ def _facebook_due(state: dict) -> bool:
         return True
     return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
 
-
 def _telegram_post_url(telegram_id: str) -> str | None:
     """Public link to the Telegram post - Buffer uses it to fetch the card image."""
     tid = str(telegram_id or "").strip()
@@ -96,6 +92,23 @@ def _telegram_post_url(telegram_id: str) -> str | None:
         return None
     return f"https://t.me/cairo_deals/{tid}"
 
+
+FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60
+
+def _facebook_due(state: dict) -> bool:
+    import time
+    last = state.get("last_facebook_publish_at") or 0
+    try:
+        last = float(last)
+    except (TypeError, ValueError):
+        return True
+    return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
+
+def _telegram_post_url(telegram_id: str) -> str | None:
+    tid = str(telegram_id or "").strip()
+    if not tid.isdigit():
+        return None
+    return f"https://t.me/cairo_deals/{tid}"
 
 async def publish_pending() -> bool:
     if os.environ.get("SOURCE_AUTO_PUBLISH_ENABLED", "").strip().lower() != "true":
@@ -166,7 +179,9 @@ async def publish_pending() -> bool:
             attempted += 1
             try:
                 message_id = int(candidate["source_message_id"])
-                # Keep existing Amazon-page lookup and its same-ASIN image/title behavior unchanged.
+                # FIX: image + name + price must come from SAME Amazon page (same ASIN).
+                # Disaster was: image from Amazon (oil) + name from source (hair dryer) = mismatched ad.
+                # If live title/image can't be fetched, skip - don't publish a mismatched ad.
                 _live = {}
                 try:
                     _live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
@@ -179,6 +194,7 @@ async def publish_pending() -> bool:
                 candidate["advertised_price"] = _live.get("price") or candidate.get("advertised_price")
                 candidate["product_name_source"] = _live["title"]
                 candidate["_live_image_url"] = _live["image_url"]
+                # FIX: rebuild caption at publish time instead of using old stored caption_preview
                 caption = _rebuild_caption(candidate, for_telegram=False)
                 telegram_caption = _rebuild_caption(candidate, for_telegram=True)
                 if not caption or not candidate.get("affiliate_url") or not candidate.get("asin"):
@@ -189,6 +205,8 @@ async def publish_pending() -> bool:
                 continue
 
             key = str(message_id)
+            # NEW ORDER: Telegram first, then Facebook takes image link from Telegram.
+            # Telegram every run. Facebook only if 2 hours passed since last Facebook post.
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             telegram_id = platform_status.get("telegram")
             if not telegram_id:
@@ -215,6 +233,9 @@ async def publish_pending() -> bool:
             if not platform_status.get("facebook"):
                 if not _facebook_due(state):
                     print(f"FACEBOOK SKIPPED for source {message_id}: less than 2 hours since last Facebook post.")
+                    # FIX: Don't block Telegram queue waiting for Facebook.
+                    # Telegram is done, remove from pending so next Telegram ad can publish.
+                    # Facebook will pick up a later candidate after 2h.
                     state["pending_candidates"] = [
                         item for item in state.get("pending_candidates", [])
                         if str(item.get("source_message_id")) != key
@@ -228,7 +249,8 @@ async def publish_pending() -> bool:
                     continue
                 else:
                     try:
-                        # Preserve the current Buffer behavior: text-only Facebook post.
+                        # FIX: Buffer needs a direct *.jpg URL, not a Telegram post page (HTML).
+                        # Telegram post link caused BufferPublishError, so send text-only for now.
                         facebook_id = await asyncio.to_thread(
                             publish_facebook, buffer_key, facebook_channel_id, caption, None
                         )
