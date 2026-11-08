@@ -59,8 +59,8 @@ def _shape(text: str) -> str:
 def _font(size: int, bold: bool = False):
     # Prefer an Arabic-capable font first so Arabic doesn't render as boxes.
     candidates = (
-        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf" if bold else "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf" if bold else "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf" if bold else "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     )
     for path in candidates:
@@ -90,7 +90,7 @@ def create_telegram_product_card(*, asin: str, product_name: str, price: str, ou
     draw.text((72, 400), shaped_price, fill="#D62828", font=price_font, direction="rtl", language="ar")
     # Footer: black bar at bottom, follow text INSIDE it (y 790-900, text at 825)
     draw.rectangle((0, 790, 1080, 900), fill="#202124")
-    follow = _shape("تابعنا على تليجرام  |  تابعنا على فيسبوك")
+    follow = _shape("تابعنا على تليجرام  •  تابعنا على فيسبوك")
     follow_font = _fit_font(draw, follow, 900, 32, 24)
     follow_box = draw.textbbox((0, 0), follow, font=follow_font, direction="rtl", language="ar")
     draw.text(((1080 - (follow_box[2] - follow_box[0])) // 2, 825), follow, fill="white", font=follow_font, direction="rtl", language="ar")
