@@ -83,11 +83,19 @@ def create_telegram_product_card(*, asin: str, product_name: str, price: str, ou
     x = image_area[0] + (image_area[2] - image_area[0] - fitted.width) // 2
     y = image_area[1] + (image_area[3] - image_area[1] - fitted.height) // 2
     canvas.paste(fitted, (x, y))
-    # Text on LEFT: name top, price below it, all INSIDE 900 height
-    shaped_name = _shape(name); name_font = _fit_font(draw, shaped_name, 440, 48, 28)
-    draw.text((72, 200), shaped_name, fill="#202124", font=name_font, direction="rtl", language="ar")
-    shaped_price = _shape(f"{amount}"); price_font = _fit_font(draw, shaped_price, 440, 60, 34)
-    draw.text((72, 400), shaped_price, fill="#D62828", font=price_font, direction="rtl", language="ar")
+    # Text on LEFT: name on 2 lines so font stays big and readable, price below it
+    words = name.split(" ")
+    # Split into 2 balanced lines (RTL: first half is right side, Pillow handles it)
+    mid = (len(words) + 1) // 2
+    line1 = " ".join(words[:mid]); line2 = " ".join(words[mid:])
+    name_font = _fit_font(draw, _shape(line1 if len(line1) >= len(line2) else line2), 440, 58, 36)
+    # FIX: RTL text must be anchored on the RIGHT (x=512), not left.
+    # Left anchor with RTL clips the first digits (625 -> 6, 485 -> 385).
+    draw.text((512, 200), _shape(line1), fill="#202124", font=name_font, direction="rtl", language="ar", anchor="ra")
+    if line2:
+        draw.text((512, 285), _shape(line2), fill="#202124", font=name_font, direction="rtl", language="ar", anchor="ra")
+    shaped_price = _shape(f"{amount}"); price_font = _fit_font(draw, shaped_price, 440, 72, 44)
+    draw.text((512, 450), shaped_price, fill="#D62828", font=price_font, direction="rtl", language="ar", anchor="ra")
     # Footer: black bar at bottom, follow text INSIDE it (y 790-900, text at 825)
     draw.rectangle((0, 790, 1080, 900), fill="#202124")
     follow = _shape("تابعنا على تليجرام  •  تابعنا على فيسبوك")
