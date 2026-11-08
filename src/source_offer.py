@@ -202,6 +202,10 @@ def extract_product_name(message_text: str, ocr_text: str = "") -> str | None:
             line = re.sub(r"https?://\S+", "", raw_line)
             line = re.sub(r"^[\W_]+", "", line, flags=re.UNICODE)
             line = re.sub(r"\s+", " ", line).strip(" -|")
+            # Remove an explicit EGP amount when the source puts it on the title line.
+            line = _SOURCE_EGP_PRICE_RE.sub("", line)
+            line = re.sub(r"\b(?:بسعر|السعر|حاليًا|الآن)\b", "", line, flags=re.IGNORECASE)
+            line = re.sub(r"\s+", " ", line).strip(" -|:،")
             if not line or len(line) < 4 or len(line) > 120:
                 continue
             if PRODUCT_NAME_SKIP.search(line) or _SOCIAL_CTA_RE.search(line):
