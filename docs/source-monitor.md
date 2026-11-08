@@ -1,8 +1,9 @@
 # Source monitor and one-item Telegram publisher
 
 The source workflow reads `@OffersEgyptofficial`, resolves Amazon short links, and builds
-Arabic offer previews. It runs on a two-hour schedule and after pushes to
-`main`. The normal scheduled and push runs are read-only: they do not post to
+Arabic offer previews. It polls every ten minutes using a saved Telegram message cursor. The first
+run inspects up to 100 recent posts; later runs process only messages newer than
+the saved cursor. It can still be delayed by GitHub Actions scheduling. The normal scheduled and push runs are read-only: they do not post to
 Telegram or Facebook.
 
 ## Link resolution
