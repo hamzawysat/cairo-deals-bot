@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 from telethon import TelegramClient
@@ -15,6 +16,7 @@ from telethon.sessions import StringSession
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.source_publish import mark_platform_published
 from src.source_publisher import publish_facebook, publish_telegram
+from src.telegram_product_card import create_telegram_product_card
 
 STATE_PATH = Path("artifacts/source-offer-state.json")
 SETTINGS_PATH = Path("config/settings.json")
@@ -126,9 +128,17 @@ async def publish_pending() -> bool:
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             if not platform_status.get("telegram"):
                 try:
-                    telegram_id = await asyncio.wait_for(
-                        publish_telegram(client, target, caption, None), timeout=45
-                    )
+                    # Telegram gets a generated product card; never fall back to text-only delivery.
+                    with tempfile.TemporaryDirectory(prefix="cairo-telegram-card-") as temp_dir:
+                        card_path = create_telegram_product_card(
+                            asin=str(candidate["asin"]),
+                            product_name=str(candidate["product_name_source"]),
+                            price=str(candidate["advertised_price"]),
+                            output_path=Path(temp_dir) / "telegram-product-card.jpg",
+                        )
+                        telegram_id = await asyncio.wait_for(
+                            publish_telegram(client, target, caption, str(card_path)), timeout=60
+                        )
                     state = mark_platform_published(state, candidate, "telegram", telegram_id)
                     save_state(state)
                     print(f"TELEGRAM CONFIRMED for source {message_id}: {telegram_id}")
