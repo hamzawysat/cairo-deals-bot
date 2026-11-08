@@ -2,6 +2,7 @@
 from __future__ import annotations
 from html.parser import HTMLParser
 from pathlib import Path
+import json
 from urllib.parse import urlparse
 import io
 import re
@@ -21,6 +22,7 @@ USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_de
 class _ImageParser(HTMLParser):
     def __init__(self):
         super().__init__(); self.image_url = None; self.title = None; self.price = None
+        self._inside_product_title = False; self._title_parts = []
     def handle_starttag(self, tag, attrs):
         values = {key.lower(): value for key, value in attrs if key}
         if tag.lower() == "meta":
@@ -28,7 +30,28 @@ class _ImageParser(HTMLParser):
             if key in {"og:image", "twitter:image"}: self.image_url = values.get("content") or self.image_url
             elif key in {"og:title", "twitter:title"}: self.title = values.get("content") or self.title
             elif key in {"product:price:amount", "og:price:amount", "price"}: self.price = values.get("content") or self.price
-        elif tag.lower() == "img" and values.get("data-old-hires"): self.image_url = values["data-old-hires"]
+        elif tag.lower() == "span" and values.get("id") == "productTitle":
+            self._inside_product_title = True
+        elif tag.lower() == "img":
+            if values.get("data-old-hires"):
+                self.image_url = values["data-old-hires"]
+            elif values.get("data-a-dynamic-image"):
+                try:
+                    choices = json.loads(values["data-a-dynamic-image"])
+                    self.image_url = next(iter(choices), self.image_url)
+                except (TypeError, ValueError):
+                    pass
+            elif values.get("src") and _valid_image_url(values["src"]):
+                self.image_url = values["src"]
+    def handle_data(self, data):
+        if self._inside_product_title:
+            self._title_parts.append(data)
+    def handle_endtag(self, tag):
+        if tag.lower() == "span" and self._inside_product_title:
+            self._inside_product_title = False
+            parsed = " ".join(" ".join(self._title_parts).split())
+            if parsed:
+                self.title = parsed
 def _valid_image_url(url: str | None) -> bool:
     try:
         parsed = urlparse(url or "")

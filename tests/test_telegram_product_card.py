@@ -84,3 +84,14 @@ def test_caption_changes_only_presentation_and_keeps_original_links():
     assert candidate["affiliate_url"] in facebook
     assert "https://t.me/cairo_deals" in telegram
     assert "https://www.facebook.com/share/19hQqVpCuG/" in facebook
+
+
+
+def test_amazon_page_parser_reads_product_title_span_and_dynamic_image():
+    parser = _ImageParser()
+    parser.feed(
+        '<span id="productTitle">منتج أمازون تجريبي</span>'
+        '<img data-a-dynamic-image="{&quot;https://m.media-amazon.com/images/I/item.jpg&quot;:[800,800]}">'
+    )
+    assert parser.title == "منتج أمازون تجريبي"
+    assert parser.image_url == "https://m.media-amazon.com/images/I/item.jpg"

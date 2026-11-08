@@ -25,13 +25,17 @@ def image_ocr(path: str) -> str:
             image = image.resize((int(image.width*factor), int(image.height*factor)), Image.Resampling.LANCZOS)
         gray = ImageOps.autocontrast(ImageOps.grayscale(image))
         enhanced = ImageEnhance.Contrast(gray).enhance(1.5)
-        outputs = [
-            pytesseract.image_to_string(
-                enhanced, lang="ara+eng", config=f"--oem 1 --psm {psm}"
-            )
-            for psm in (6, 11)
-        ]
-        return "\n".join(outputs)
+        primary = pytesseract.image_to_string(
+            enhanced, lang="ara+eng", config="--oem 1 --psm 6"
+        )
+        # Run sparse-text OCR only when the first pass did not recover
+        # both a product name and an explicit Egyptian-pound price.
+        if extract_product_name(primary) and extract_egypt_price_text(primary):
+            return primary
+        fallback = pytesseract.image_to_string(
+            enhanced, lang="ara+eng", config="--oem 1 --psm 11"
+        )
+        return "\n".join(part for part in (primary, fallback) if part)
 
 
 def remember_ocr_text(cache: dict, message_id: int, text: str, limit: int = 120) -> None:
@@ -81,7 +85,11 @@ async def run() -> bool:
                 body=message.message or ""
                 entity_urls=[e.url for e in (message.entities or []) if getattr(e,"url",None)]
                 ocr_text=""
-                if message.photo:
+                # Prefer the post text; OCR is unnecessary when both required
+                # facts are already present in the caption.
+                body_has_name = bool(extract_product_name(body))
+                body_has_egp_price = bool(extract_egypt_price_text(body))
+                if message.photo and not (body_has_name and body_has_egp_price):
                     cached_text = cached_ocr_text(ocr_cache, message.id)
                     if cached_text is not None:
                         ocr_text = cached_text
