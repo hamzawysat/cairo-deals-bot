@@ -1,0 +1,172 @@
+"""Build Telegram-only Cairo Deals product cards from Amazon Egypt product pages."""
+from __future__ import annotations
+
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import urlparse
+import io
+import re
+
+import arabic_reshaper
+from bidi.algorithm import get_display
+import requests
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+PRODUCT_PAGE = "https://www.amazon.eg/dp/{asin}"
+IMAGE_HOSTS = {
+    "m.media-amazon.com",
+    "images-na.ssl-images-amazon.com",
+    "images-eu.ssl-images-amazon.com",
+}
+CARD_SIZE = (1080, 1350)
+MAX_IMAGE_BYTES = 12 * 1024 * 1024
+USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_deals)"
+
+
+class _ImageParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.image_url = None
+
+    def handle_starttag(self, tag, attrs):
+        values = {key.lower(): value for key, value in attrs if key}
+        if tag.lower() == "meta":
+            key = (values.get("property") or values.get("name") or "").lower()
+            if key in {"og:image", "twitter:image"}:
+                self.image_url = values.get("content") or self.image_url
+        elif tag.lower() == "img" and values.get("data-old-hires"):
+            self.image_url = values["data-old-hires"]
+
+
+def _valid_image_url(url: str | None) -> bool:
+    try:
+        parsed = urlparse(url or "")
+        return (
+            parsed.scheme == "https"
+            and (parsed.hostname or "").lower() in IMAGE_HOSTS
+            and parsed.port in (None, 443)
+            and not parsed.username
+            and not parsed.password
+        )
+    except ValueError:
+        return False
+
+
+def find_amazon_product_image(asin: str, *, session=None) -> str:
+    """Read the primary image URL exposed by the public Amazon.eg product page."""
+    if not re.fullmatch(r"[A-Z0-9]{10}", (asin or "").upper()):
+        raise ValueError("Invalid Amazon ASIN")
+    client = session or requests.Session()
+    owns_session = session is None
+    try:
+        response = client.get(
+            PRODUCT_PAGE.format(asin=asin.upper()),
+            headers={"User-Agent": USER_AGENT, "Accept-Language": "ar-EG,ar;q=0.9,en;q=0.7"},
+            timeout=(8, 18),
+        )
+        response.raise_for_status()
+        parser = _ImageParser()
+        parser.feed(response.text)
+        if not _valid_image_url(parser.image_url):
+            raise ValueError("Amazon page did not expose an approved Amazon CDN image")
+        return parser.image_url
+    finally:
+        if owns_session:
+            client.close()
+
+
+def _load_product_image(url: str, *, session=None) -> Image.Image:
+    if not _valid_image_url(url):
+        raise ValueError("Product image URL is not on an approved Amazon image CDN")
+    client = session or requests.Session()
+    owns_session = session is None
+    try:
+        response = client.get(url, timeout=(8, 20), stream=True, headers={"User-Agent": USER_AGENT})
+        response.raise_for_status()
+        content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
+        if not content_type.startswith("image/"):
+            raise ValueError("Amazon image response is not an image")
+        data = bytearray()
+        for chunk in response.iter_content(64 * 1024):
+            data.extend(chunk)
+            if len(data) > MAX_IMAGE_BYTES:
+                raise ValueError("Product image exceeds the size limit")
+        image = Image.open(io.BytesIO(data))
+        image.load()
+        return ImageOps.exif_transpose(image).convert("RGB")
+    finally:
+        if owns_session:
+            client.close()
+
+
+def _shape(text: str) -> str:
+    return get_display(arabic_reshaper.reshape(str(text)))
+
+
+def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    candidates = (
+        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf" if bold
+        else "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    )
+    for path in candidates:
+        if Path(path).is_file():
+            return ImageFont.truetype(path, size=size)
+    return ImageFont.load_default()
+
+
+def _fit_font(draw: ImageDraw.ImageDraw, text: str, max_width: int, start: int, min_size: int = 30):
+    for size in range(start, min_size - 1, -2):
+        font = _font(size, bold=True)
+        if draw.textbbox((0, 0), text, font=font)[2] <= max_width:
+            return font
+    return _font(min_size, bold=True)
+
+
+def create_telegram_product_card(
+    *, asin: str, product_name: str, price: str, output_path: str | Path,
+    image_url: str | None = None, session=None,
+) -> Path:
+    """Create a 1080x1350 card; product image is contained, never cropped."""
+    name = re.sub(r"\s+", " ", (product_name or "")).strip()
+    amount = re.sub(r"\s+", " ", (price or "")).strip()
+    if not name or len(name) > 120 or not amount or len(amount) > 40:
+        raise ValueError("Product name or advertised price is invalid")
+
+    product_url = image_url or find_amazon_product_image(asin, session=session)
+    product = _load_product_image(product_url, session=session)
+    canvas = Image.new("RGB", CARD_SIZE, "white")
+    draw = ImageDraw.Draw(canvas)
+
+    # Keep generous margins and fit the complete original product image.
+    image_area = (72, 70, 1008, 890)
+    fitted = ImageOps.contain(product, (image_area[2] - image_area[0], image_area[3] - image_area[1]))
+    x = image_area[0] + (image_area[2] - image_area[0] - fitted.width) // 2
+    y = image_area[1] + (image_area[3] - image_area[1] - fitted.height) // 2
+    canvas.paste(fitted, (x, y))
+
+    shaped_name = _shape(name)
+    name_font = _fit_font(draw, shaped_name, 940, 58, 34)
+    name_box = draw.textbbox((0, 0), shaped_name, font=name_font)
+    draw.text(((1080 - (name_box[2] - name_box[0])) // 2, 930), shaped_name, fill="#202124", font=name_font)
+
+    shaped_price = _shape(f"السعر: {amount}")
+    price_font = _fit_font(draw, shaped_price, 940, 68, 38)
+    price_box = draw.textbbox((0, 0), shaped_price, font=price_font)
+    draw.text(((1080 - (price_box[2] - price_box[0])) // 2, 1040), shaped_price, fill="#D62828", font=price_font)
+
+    draw.rectangle((0, 1160, 1080, 1350), fill="#202124")
+    brand = "Cairo Deals"
+    brand_font = _font(48, bold=True)
+    brand_box = draw.textbbox((0, 0), brand, font=brand_font)
+    draw.text(((1080 - (brand_box[2] - brand_box[0])) // 2, 1180), brand, fill="white", font=brand_font)
+    footer = _shape("تيليجرام: @cairo_deals  |  فيسبوك: cairodeals")
+    footer_font = _fit_font(draw, footer, 990, 32, 24)
+    footer_box = draw.textbbox((0, 0), footer, font=footer_font)
+    draw.text(((1080 - (footer_box[2] - footer_box[0])) // 2, 1260), footer, fill="#F2F2F2", font=footer_font)
+
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(destination, format="JPEG", quality=92, optimize=True)
+    return destination
