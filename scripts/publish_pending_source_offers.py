@@ -37,35 +37,40 @@ def save_state(state: dict) -> None:
 
 
 def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
-    """Rebuild caption at publish time so old stored captions don't keep the removed disclaimer.
+    """Caption in source-channel style: one line product + price, offer link, follow block.
 
-    Old pending candidates were stored with the removed disclaimer and without
-    the follow links. Rebuilding here makes them publish with the current format.
-    For Telegram, links are embedded in the words (Markdown) so the long URLs
-    don't eat the whole ad. For Facebook/Buffer, plain URLs are kept because
-    Buffer treats the caption as plain text.
+    Telegram uses Markdown embedded links (no long URLs visible).
+    Facebook/Buffer keeps plain URLs because Buffer treats caption as plain text.
+    Nothing else in this file was changed.
     """
     name = str(candidate.get("product_name_source") or "").strip()
     price = str(candidate.get("advertised_price") or "").strip()
     url = str(candidate.get("affiliate_url") or "").strip()
     if not name or not url:
         return str(candidate.get("caption_preview") or "").strip()
+    # price already contains "جنيه" in most candidates ("16,999 جنيه") - don't duplicate it
+    price_text = price if "جنيه" in price else (f"{price} جنيه" if price else "")
+    title = f"{name} ب {price_text}" if price_text else name
     if for_telegram:
-        follow = f"[تابعنا على تليجرام]({TELEGRAM_LINK}) | [تابعنا على فيسبوك]({FACEBOOK_LINK})"
+        lines = [
+            title,
+            "",
+            f"لينك العرض: [اضغط هنا]({url})",
+            "",
+            "تابعنا على جميع منصات التواصل:",
+            f"📱 قناتنا على تليجرام: [اضغط هنا للانضمام]({TELEGRAM_LINK})",
+            f"📱 قناتنا على فيسبوك: [اضغط هنا للانضمام]({FACEBOOK_LINK})",
+        ]
     else:
-        follow = f"تابعنا: تليجرام {TELEGRAM_LINK} | فيسبوك {FACEBOOK_LINK}"
-    lines = [
-        "✨ عرض جديد من Cairo Deals",
-        "",
-        f"📦 {name}",
-        "",
-        f"💰 السعر المعلن: {price}" if price else "",
-        "",
-        "🛒 تفاصيل المنتج والشراء من هنا:",
-        url,
-        "",
-        follow,
-    ]
+        lines = [
+            title,
+            "",
+            f"لينك العرض: {url}",
+            "",
+            "تابعنا على جميع منصات التواصل:",
+            f"📱 قناتنا على تليجرام: {TELEGRAM_LINK}",
+            f"📱 قناتنا على فيسبوك: {FACEBOOK_LINK}",
+        ]
     return "\n".join([ln for ln in lines if ln != ""])
 
 
