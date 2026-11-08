@@ -1,9 +1,9 @@
 {
   "timezone": "Africa/Cairo",
-  "interval_minutes": 5,
+  "interval_minutes": 2,
   "interval_grace_seconds": 60,
   "max_posts_per_run": 1,
-  "dry_run": true,
+  "dry_run": false,
   "stores": {
     "amazon_eg": {
       "enabled": true,
@@ -16,16 +16,16 @@
   },
   "channels": {
     "telegram": {
-      "enabled": false
+      "enabled": true
     },
     "facebook": {
-      "enabled": false,
+      "enabled": true,
       "channel_id": "6aee840de29c69a1718c67ff"
     }
   },
   "safety": {
     "require_product_url": true,
-    "require_image": true,
+    "require_image": false,
     "skip_missing_price": true,
     "avoid_duplicate_products": true
   }
