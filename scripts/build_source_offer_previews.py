@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read source Telegram posts and build non-publishing, review-only offer previews."""
 from __future__ import annotations
-import asyncio, json, logging, os, re, sys, tempfile
+import asyncio, json, logging, os, re, sys, tempfile, time
 from pathlib import Path
 from PIL import Image, ImageEnhance, ImageOps
 import pytesseract
@@ -70,6 +70,10 @@ async def run() -> bool:
         if str(k).isdigit() and isinstance(v, str)
     }
     ocr_cache_hits = 0
+    ocr_cache_entries_loaded = len(ocr_cache)
+    media_download_seconds = 0.0
+    ocr_seconds = 0.0
+    link_resolution_seconds = 0.0
     pending_candidates=list(prior_state.get("pending_candidates",[]))
     pending_message_ids={int(i.get("source_message_id",0)) for i in pending_candidates if isinstance(i,dict)}
     pending_keys={str(i.get("source_product_key", i.get("source_message_id"))) for i in pending_candidates if isinstance(i,dict)}
@@ -104,9 +108,13 @@ async def run() -> bool:
                         photo_count += 1
                         try:
                             path=str(Path(temp_dir)/f"source_{message.id}.jpg")
+                            download_started = time.perf_counter()
                             downloaded=await asyncio.wait_for(client.download_media(message, file=path), timeout=30)
+                            media_download_seconds += time.perf_counter() - download_started
                             if downloaded and Path(downloaded).is_file():
+                                ocr_started = time.perf_counter()
                                 ocr_text=image_ocr(downloaded)
+                                ocr_seconds += time.perf_counter() - ocr_started
                                 remember_ocr_text(ocr_cache, message.id, ocr_text)
                         except Exception:
                             rejected["photo_ocr_failed"]+=1
@@ -118,8 +126,11 @@ async def run() -> bool:
                     return resolution_cache[url]
                 # ===== FIXED PART: split combined ads instead of rejecting them =====
                 try:
+                    resolution_started = time.perf_counter()
                     candidates_for_message=build_source_candidates(message_id=message.id, message_text=body, ocr_text=ocr_text, entity_urls=entity_urls, tracking_id=TRACKING_ID, source_channel=SOURCE_CHANNEL, resolver=cached_resolver)
+                    link_resolution_seconds += time.perf_counter() - resolution_started
                 except Exception:
+                    link_resolution_seconds += time.perf_counter() - resolution_started
                     candidates_for_message=[]
                 if not candidates_for_message:
                     combined_text=body+"\n"+ocr_text
@@ -167,7 +178,11 @@ async def run() -> bool:
         print(f"New review-ready product candidates: {len(candidates)}")
         print(f"Pending offers retained for delivery: {len(pending_candidates)}")
         print(f"Photos OCR attempted: {photo_count}")
+        print(f"OCR cache entries loaded: {ocr_cache_entries_loaded}")
         print(f"Cached OCR results reused: {ocr_cache_hits}")
+        print(f"Media download time: {media_download_seconds:.2f}s")
+        print(f"Image OCR processing time: {ocr_seconds:.2f}s")
+        print(f"Amazon link resolution time: {link_resolution_seconds:.2f}s")
         print("No Telegram messages were sent, edited, or deleted.")
         print("No Facebook, WhatsApp, or destination channel was contacted.")
         print("Source photos were used only for OCR and are not included for republication.")
