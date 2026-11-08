@@ -54,7 +54,7 @@ async def publish_one() -> bool:
         **report,
         "candidates": [
             item for item in report.get("candidates", [])
-            if int(item.get("source_message_id", -1)) == selected_id
+            if str(item.get("source_message_id", "")) == str(selected_id)
         ],
     }
     candidate = select_unpublished_candidate(selected_report, state)
