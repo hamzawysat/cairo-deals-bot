@@ -216,9 +216,10 @@ async def publish_pending() -> bool:
                     print(f"FACEBOOK SKIPPED for source {message_id}: less than 2 hours since last Facebook post.")
                 else:
                     try:
-                        photo_url = _telegram_post_url(str(telegram_id or platform_status.get("telegram") or ""))
+                        # FIX: Buffer needs a direct *.jpg URL, not a Telegram post page (HTML).
+                        # Telegram post link caused BufferPublishError, so send text-only for now.
                         facebook_id = await asyncio.to_thread(
-                            publish_facebook, buffer_key, facebook_channel_id, caption, photo_url
+                            publish_facebook, buffer_key, facebook_channel_id, caption, None
                         )
                         state = mark_platform_published(state, candidate, "facebook", facebook_id)
                         import time as _time
@@ -230,7 +231,7 @@ async def publish_pending() -> bool:
                         print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
                         continue
             final_status = state.get("platform_status", {}).get(key, {})
-            if final_status.get("telegram") and (final_status.get("facebook") or not _facebook_due(state)):
+            if final_status.get("telegram") and final_status.get("facebook"):
                 published = {int(value) for value in state.get("published_message_ids", [])}
                 published.add(message_id)
                 state["published_message_ids"] = sorted(published)[-1000:]
