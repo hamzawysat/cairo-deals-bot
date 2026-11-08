@@ -53,7 +53,7 @@ jobs:
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
         run: python scripts/build_source_offer_previews.py
       - name: Automatically publish queued Amazon offers
-        if: ${{ vars.SOURCE_AUTO_PUBLISH_ENABLED == 'true' }}
+        if: ${{ github.event_name == 'schedule' && vars.SOURCE_AUTO_PUBLISH_ENABLED == 'true' }}
         env:
           SOURCE_AUTO_PUBLISH_ENABLED: ${{ vars.SOURCE_AUTO_PUBLISH_ENABLED }}
           TARGET_TELEGRAM_CHANNEL: "@cairo_deals"
