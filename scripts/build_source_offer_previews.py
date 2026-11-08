@@ -27,7 +27,7 @@ from src.original_content import extract_egypt_price_text
 from urllib.parse import urlparse
 
 SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@OffersEgyptofficial")
-POST_LIMIT = 30
+POST_LIMIT = 100
 PHOTO_LIMIT = 10
 TRACKING_ID = "cairodeals-21"
 
@@ -72,6 +72,8 @@ async def run() -> bool:
     # A preview is not a publication: keep candidates eligible until actually posted.
     prior_message_ids = {int(value) for value in prior_state.get("published_message_ids", [])}
     prior_asins = {str(value).upper() for value in prior_state.get("published_asins", [])}
+    last_seen_message_id = int(prior_state.get("last_seen_message_id", 0) or 0)
+    highest_seen_message_id = last_seen_message_id
     duplicate_skipped = 0
     rejected = {"no_resolved_asin_or_ambiguous": 0, "missing_name_or_egp_price": 0, "photo_ocr_failed": 0}
     rejection_details = []
@@ -87,6 +89,10 @@ async def run() -> bool:
                 if message.id in seen_messages:
                     continue
                 seen_messages.add(message.id)
+                highest_seen_message_id = max(highest_seen_message_id, int(message.id))
+                # The source iterator is newest-first; only inspect posts beyond the saved cursor.
+                if int(message.id) <= last_seen_message_id:
+                    continue
                 body = message.message or ""
                 entity_urls = [
                     entity.url for entity in (message.entities or [])
@@ -180,8 +186,7 @@ async def run() -> bool:
         output = Path("artifacts/source-offer-previews.json")
         output.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text(json.dumps({
-            "message_ids": list((prior_message_ids | {item["source_message_id"] for item in candidates}))[-1000:],
-            "asins": list((prior_asins | {item["asin"] for item in candidates}))[-1000:],
+            "last_seen_message_id": highest_seen_message_id,
             "published_message_ids": prior_state.get("published_message_ids", []),
             "published_asins": prior_state.get("published_asins", []),
         }, ensure_ascii=False, indent=2), encoding="utf-8")
