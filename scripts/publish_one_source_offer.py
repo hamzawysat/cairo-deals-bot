@@ -123,14 +123,14 @@ async def publish_one() -> bool:
         if not platform_status.get("facebook"):
             try:
                 facebook_id = await asyncio.to_thread(
-                    publish_facebook, buffer_key, facebook_channel_id, caption, None
+                    publish_facebook, meta_token, caption, None
                 )
             except Exception:
                 print("FACEBOOK FAILED: Telegram was not attempted; retry is safe.")
                 return False
             state = mark_platform_published(state, candidate, "facebook", facebook_id)
             save_state(state)
-            print(f"FACEBOOK CONFIRMED: Buffer post {facebook_id}")
+            print(f"FACEBOOK CONFIRMED: Meta post {facebook_id}")
 
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         if not platform_status.get("telegram"):
