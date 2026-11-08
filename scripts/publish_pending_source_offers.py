@@ -126,13 +126,12 @@ async def publish_pending() -> bool:
     raw_id = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
     session = os.environ.get("TELEGRAM_SESSION", "")
-    buffer_key = os.environ.get("BUFFER_API_KEY", "")
-    facebook_channel_id = str(channels.get("facebook", {}).get("channel_id") or "").strip()
+    meta_token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
     if not raw_id.isdigit() or not api_hash or not session:
         print("AUTO-PUBLISH BLOCKED: Telegram credentials are missing.")
         return False
-    if not buffer_key or not facebook_channel_id:
-        print("AUTO-PUBLISH BLOCKED: Buffer credentials or Facebook channel ID are missing.")
+    if not meta_token:
+        print("AUTO-PUBLISH BLOCKED: Meta Page access token is missing.")
         return False
 
     client = TelegramClient(StringSession(session), int(raw_id), api_hash)
@@ -226,8 +225,7 @@ async def publish_pending() -> bool:
                     continue
                 else:
                     try:
-                        # FIX: Buffer needs a direct *.jpg URL, not a Telegram post page (HTML).
-                        # Telegram post link caused BufferPublishError, so send text-only for now.
+                        # Source-channel photos are not reused without documented image rights.
                         facebook_id = await asyncio.to_thread(
                             publish_facebook, meta_token, caption, None
                         )
