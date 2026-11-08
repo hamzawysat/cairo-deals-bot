@@ -301,7 +301,7 @@ def run_once():
                 if last_facebook:
                     try:
                         last_dt = datetime.strptime(last_facebook[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-                        facebook_due = (datetime.now(timezone.utc) - last_dt).total_seconds() >= 2 * 60 * 60
+                        facebook_due = (datetime.now(timezone.utc) - last_dt).total_seconds() >= 2 * 60
                     except (TypeError, ValueError):
                         facebook_due = True
                 if not facebook_due:
