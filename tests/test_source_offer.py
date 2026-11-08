@@ -241,7 +241,10 @@ def test_source_price_supports_short_egyptian_currency_and_uses_post_text():
 def test_product_name_skips_social_cta_and_prefers_message_text():
     assert extract_product_name(
         "تابعنا على جميع منصات التواصل:\nطقم أكواب ماء 6 قطع بسعر 157ج"
-    ) == "طقم أكواب ماء 6 قطع بسعر 157ج"
+    ) == "طقم أكواب ماء 6 قطع"
+    assert extract_product_name(
+        "طقم أكواب ماء 6 قطع - السعر 157 جنيه"
+    ) == "طقم أكواب ماء 6 قطع"
 
 
 def test_product_name_does_not_use_social_cta_from_ocr():
