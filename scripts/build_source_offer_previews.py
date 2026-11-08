@@ -70,6 +70,11 @@ async def run() -> bool:
         prior_state = {}
     # A preview is not a publication: keep candidates eligible until actually posted.
     prior_message_ids = {int(value) for value in prior_state.get("published_message_ids", [])}
+    pending_candidates = list(prior_state.get("pending_candidates", []))
+    pending_message_ids = {
+        int(item.get("source_message_id", 0))
+        for item in pending_candidates if isinstance(item, dict)
+    }
     last_seen_message_id = int(prior_state.get("last_seen_message_id", 0) or 0)
     highest_seen_message_id = last_seen_message_id
     duplicate_skipped = 0
@@ -169,21 +174,32 @@ async def run() -> bool:
                     })
                     continue
                 # A new source message remains eligible even if its ASIN appeared before.
-                if message.id in prior_message_ids:
+                if message.id in prior_message_ids or message.id in pending_message_ids:
                     duplicate_skipped += 1
                     continue
                 candidate["source_post_url"] = f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
                 candidate["source_date"] = message.date.isoformat() if message.date else None
                 candidate["ocr_used"] = bool(ocr_text)
                 candidates.append(candidate)
+                pending_message_ids.add(int(message.id))
+
+        # Persist eligible offers until both destinations confirm delivery.
+        pending_by_id = {
+            int(item["source_message_id"]): item
+            for item in pending_candidates
+            if isinstance(item, dict) and str(item.get("source_message_id", "")).isdigit()
+        }
+        for item in candidates:
+            pending_by_id[int(item["source_message_id"])] = item
+        pending_candidates = list(pending_by_id.values())
 
         output = Path("artifacts/source-offer-previews.json")
         output.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text(json.dumps({
             "last_seen_message_id": highest_seen_message_id,
             "published_message_ids": prior_state.get("published_message_ids", []),
-            "published_asins": prior_state.get("published_asins", []),
             "platform_status": prior_state.get("platform_status", {}),
+            "pending_candidates": pending_candidates,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         report = {
             "source_channel": SOURCE_CHANNEL,
@@ -193,14 +209,16 @@ async def run() -> bool:
             "duplicate_candidates_skipped": duplicate_skipped,
             "rejected_counts": rejected,
             "rejections": rejection_details,
-            "candidates": candidates,
+            "candidates": pending_candidates,
+            "pending_candidate_count": len(pending_candidates),
             "publishing_performed": False,
             "destination_channels_touched": [],
             "image_reuse_policy": "source images are OCR evidence only and are not cleared for republication",
         }
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"PREVIEW BUILD PASSED: {len(seen_messages)} source posts scanned.")
-        print(f"Review-ready product candidates: {len(candidates)}")
+        print(f"New review-ready product candidates: {len(candidates)}")
+        print(f"Pending offers retained for delivery: {len(pending_candidates)}")
         print(f"Photos OCR attempted: {photo_count}")
         print("No Telegram messages were sent, edited, or deleted.")
         print("No Facebook, WhatsApp, or destination channel was contacted.")

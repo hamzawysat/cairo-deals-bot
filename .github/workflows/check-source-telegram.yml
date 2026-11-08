@@ -1,4 +1,4 @@
-name: Build source offer previews (publishing disabled by default)
+name: Cron-triggered source offer monitoring and publishing
 on:
   workflow_dispatch:
     inputs:
@@ -12,8 +12,6 @@ on:
         required: false
         type: string
         default: ""
-  schedule:
-    - cron: "*/10 * * * *"
 permissions:
   contents: read
 concurrency:
@@ -26,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -52,6 +50,16 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
         run: python scripts/build_source_offer_previews.py
+      - name: Automatically publish queued Amazon offers
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          SOURCE_AUTO_PUBLISH_ENABLED: "true"
+          TARGET_TELEGRAM_CHANNEL: "@cairo_deals"
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+        run: python scripts/publish_pending_source_offers.py
       - name: Publish exactly one reviewed offer (manual opt-in only)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_one == true }}
         env:

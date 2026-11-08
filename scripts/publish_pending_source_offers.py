@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""Publish queued Amazon source offers to the enabled Cairo Deals destinations."""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+
+from telethon import TelegramClient
+from telethon.sessions import StringSession
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.source_publish import mark_platform_published
+from src.source_publisher import publish_facebook, publish_telegram
+
+STATE_PATH = Path("artifacts/source-offer-state.json")
+SETTINGS_PATH = Path("config/settings.json")
+
+
+def load_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def save_state(state: dict) -> None:
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary = STATE_PATH.with_suffix(".tmp")
+    temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(STATE_PATH)
+
+
+async def publish_pending() -> bool:
+    if os.environ.get("SOURCE_AUTO_PUBLISH_ENABLED", "").strip().lower() != "true":
+        print("AUTO-PUBLISH BLOCKED: repository variable SOURCE_AUTO_PUBLISH_ENABLED is not true.")
+        return False
+
+    try:
+        settings = load_json(SETTINGS_PATH)
+        state = load_json(STATE_PATH) if STATE_PATH.is_file() else {}
+    except (OSError, ValueError):
+        print("AUTO-PUBLISH BLOCKED: settings or delivery state could not be loaded.")
+        return False
+
+    if settings.get("dry_run", True) is not False:
+        print("AUTO-PUBLISH BLOCKED: config/settings.json still has dry_run enabled.")
+        return False
+    channels = settings.get("channels", {})
+    if not channels.get("telegram", {}).get("enabled", False):
+        print("AUTO-PUBLISH BLOCKED: Telegram destination is disabled in config/settings.json.")
+        return False
+    if not channels.get("facebook", {}).get("enabled", False):
+        print("AUTO-PUBLISH BLOCKED: Facebook destination is disabled in config/settings.json.")
+        return False
+    if settings.get("safety", {}).get("require_image", False):
+        print("AUTO-PUBLISH BLOCKED: image reuse is required but no approved product-image source is configured.")
+        return False
+
+    pending = list(state.get("pending_candidates", []))
+    if not pending:
+        print("AUTO-PUBLISH: no eligible pending Amazon offers.")
+        return True
+
+    max_posts = settings.get("max_posts_per_run", 1)
+    try:
+        max_posts = max(1, min(int(max_posts), 10))
+    except (TypeError, ValueError):
+        max_posts = 1
+
+    raw_id = os.environ.get("TELEGRAM_API_ID", "")
+    api_hash = os.environ.get("TELEGRAM_API_HASH", "")
+    session = os.environ.get("TELEGRAM_SESSION", "")
+    buffer_key = os.environ.get("BUFFER_API_KEY", "")
+    facebook_channel_id = str(channels.get("facebook", {}).get("channel_id") or "").strip()
+    if not raw_id.isdigit() or not api_hash or not session:
+        print("AUTO-PUBLISH BLOCKED: Telegram credentials are missing.")
+        return False
+    if not buffer_key or not facebook_channel_id:
+        print("AUTO-PUBLISH BLOCKED: Buffer credentials or Facebook channel ID are missing.")
+        return False
+
+    client = TelegramClient(StringSession(session), int(raw_id), api_hash)
+    all_ok = True
+    try:
+        await asyncio.wait_for(client.connect(), timeout=25)
+        if not await client.is_user_authorized():
+            print("AUTO-PUBLISH BLOCKED: Telegram session is not authorized.")
+            return False
+        target = await asyncio.wait_for(
+            client.get_entity(os.environ.get("TARGET_TELEGRAM_CHANNEL", "@cairo_deals")),
+            timeout=20,
+        )
+
+        processed = 0
+        attempted = 0
+        for candidate in pending:
+            if attempted >= max_posts:
+                break
+            attempted += 1
+            try:
+                message_id = int(candidate["source_message_id"])
+                caption = str(candidate.get("caption_preview") or "").strip()
+                if not caption or not candidate.get("affiliate_url") or not candidate.get("asin"):
+                    print(f"SKIPPED source message {message_id}: candidate data is incomplete.")
+                    continue
+            except (KeyError, TypeError, ValueError):
+                print("SKIPPED malformed pending candidate.")
+                continue
+
+            key = str(message_id)
+            platform_status = dict(state.get("platform_status", {}).get(key, {}))
+            if not platform_status.get("facebook"):
+                try:
+                    facebook_id = await asyncio.to_thread(
+                        publish_facebook, buffer_key, facebook_channel_id, caption, None
+                    )
+                    state = mark_platform_published(state, candidate, "facebook", facebook_id)
+                    save_state(state)
+                    print(f"FACEBOOK CONFIRMED for source {message_id}: {facebook_id}")
+                except Exception as exc:
+                    all_ok = False
+                    print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
+                    continue
+
+            platform_status = dict(state.get("platform_status", {}).get(key, {}))
+            if not platform_status.get("telegram"):
+                try:
+                    telegram_id = await asyncio.wait_for(
+                        publish_telegram(client, target, caption, None), timeout=45
+                    )
+                    state = mark_platform_published(state, candidate, "telegram", telegram_id)
+                    save_state(state)
+                    print(f"TELEGRAM CONFIRMED for source {message_id}: {telegram_id}")
+                except Exception as exc:
+                    all_ok = False
+                    print(f"TELEGRAM FAILED for source {message_id}: {type(exc).__name__}")
+                    continue
+
+            final_status = state.get("platform_status", {}).get(key, {})
+            if final_status.get("facebook") and final_status.get("telegram"):
+                published = {int(value) for value in state.get("published_message_ids", [])}
+                published.add(message_id)
+                state["published_message_ids"] = sorted(published)[-1000:]
+                state["pending_candidates"] = [
+                    item for item in state.get("pending_candidates", [])
+                    if str(item.get("source_message_id")) != key
+                ]
+                save_state(state)
+                processed += 1
+                print(f"OFFER COMPLETE: source message {message_id} delivered to both destinations.")
+
+        print(f"AUTO-PUBLISH FINISHED: {processed} offer(s) completed this run.")
+        return all_ok
+    except Exception as exc:
+        print(f"AUTO-PUBLISH FAILED: {type(exc).__name__}; pending offers were retained.")
+        return False
+    finally:
+        if client.is_connected():
+            await client.disconnect()
+
+
+if __name__ == "__main__":
+    logging.disable(logging.CRITICAL)
+    try:
+        success = asyncio.run(publish_pending())
+    except Exception:
+        print("AUTO-PUBLISH FAILED: safe startup failure.")
+        success = False
+    sys.exit(0 if success else 1)
