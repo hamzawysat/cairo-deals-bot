@@ -77,6 +77,7 @@ def test_source_publisher_scripts_are_valid_python():
     for filename in (
         "scripts/build_source_offer_previews.py",
         "scripts/publish_one_source_offer.py",
+        "scripts/publish_pending_source_offers.py",
         "scripts/inspect_source_samples.py",
     ):
         ast.parse(Path(filename).read_text(encoding="utf-8"), filename=filename)
@@ -118,3 +119,15 @@ def test_preview_state_preserves_partial_delivery_records():
     content = Path("scripts/build_source_offer_previews.py").read_text(encoding="utf-8")
     assert '"platform_status": prior_state.get("platform_status", {})' in content
     assert 'candidate["asin"] in prior_asins' not in content
+
+
+
+def test_automatic_publisher_is_gated_and_uses_persisted_pending_queue():
+    from pathlib import Path
+
+    content = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
+    assert 'SOURCE_AUTO_PUBLISH_ENABLED' in content
+    assert 'pending_candidates' in content
+    assert 'dry_run' in content
+    assert 'require_image' in content
+    assert 'mark_platform_published' in content
