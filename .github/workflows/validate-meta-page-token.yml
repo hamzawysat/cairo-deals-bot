@@ -1,0 +1,47 @@
+name: Validate Meta Page token (no publishing)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify token resolves to Cairo Deals Page
+        env:
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_PAGE_NAME: cairodeals
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.parse
+          import urllib.request
+          token = os.environ.get("META_PAGE_ACCESS_TOKEN", "").strip()
+          if not token:
+              print("FAILED: META_PAGE_ACCESS_TOKEN secret is missing.")
+              sys.exit(1)
+          params = urllib.parse.urlencode({"fields": "id,name", "access_token": token})
+          url = "https://graph.facebook.com/v27.0/me?" + params
+          try:
+              with urllib.request.urlopen(url, timeout=20) as response:
+                  data = json.loads(response.read().decode("utf-8"))
+          except Exception:
+              print("FAILED: Meta identity request could not be completed. Token was not printed.")
+              sys.exit(1)
+          if data.get("error"):
+              print("FAILED: Meta rejected the token. Token was not printed.")
+              sys.exit(1)
+          page_id = str(data.get("id") or "").strip()
+          page_name = str(data.get("name") or "").strip()
+          expected = os.environ.get("META_PAGE_NAME", "cairodeals").strip()
+          if not page_id or page_name.casefold() != expected.casefold():
+              print("FAILED: token did not resolve to the expected Cairo Deals Page.")
+              sys.exit(1)
+          print("SUCCESS: Meta token resolves to the expected Page.")
+          print("Page name:", page_name)
+          print("Page ID:", page_id)
+          print("No post was created.")
+          PY
