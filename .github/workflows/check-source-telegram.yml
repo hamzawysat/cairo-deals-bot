@@ -16,6 +16,7 @@ permissions:
   contents: read
 concurrency:
   group: source-offer-preview
+  queue: max
   cancel-in-progress: false
 jobs:
   preview:
