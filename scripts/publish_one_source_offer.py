@@ -14,7 +14,7 @@ from telethon.sessions import StringSession
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.source_offer import build_source_candidate
-from src.source_publish import mark_platform_published, select_unpublished_candidate
+from src.source_publish import mark_platform_published
 from src.source_publisher import publish_facebook, publish_telegram
 from src.telegram_product_card import create_telegram_product_card, find_amazon_product_details
 import tempfile
@@ -73,15 +73,15 @@ async def publish_one() -> bool:
             print("TELEGRAM BLOCKED: user session is not authorized.")
             return False
 
-        # Use the preview if present; otherwise fetch the exact requested source post.
-        selected_report = {
-            **report,
-            "candidates": [
+        # Select the exact manually requested source post even if persisted status
+        # says it was published; each destination is verified independently below.
+        candidate = next(
+            (
                 item for item in report.get("candidates", [])
                 if str(item.get("source_message_id", "")) == str(selected_id)
-            ],
-        }
-        candidate = select_unpublished_candidate(selected_report, state)
+            ),
+            None,
+        )
         if candidate is None:
             source = await asyncio.wait_for(client.get_entity(SOURCE_CHANNEL), timeout=20)
             message = await asyncio.wait_for(
@@ -106,10 +106,6 @@ async def publish_one() -> bool:
                 print("PUBLISH BLOCKED: source post needs a valid Amazon link, product name, and EGP price.")
                 return False
             candidate["source_post_url"] = f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
-            candidate = select_unpublished_candidate({"candidates": [candidate]}, state)
-            if candidate is None:
-                print("PUBLISH BLOCKED: this exact source message was already fully published.")
-                return False
 
         message_key = str(candidate["source_message_id"])
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
