@@ -36,3 +36,31 @@ def test_ocr_cache_is_bounded_and_evicts_oldest_entry():
     preview.remember_ocr_text(cache, 2, "new", limit=1)
 
     assert cache == {"2": "new"}
+
+
+def test_image_ocr_does_not_upscale_small_images_or_exceed_1200px(tmp_path, monkeypatch):
+    image_path = tmp_path / "small.png"
+    Image.new("RGB", (800, 600), "white").save(image_path)
+    seen_sizes = []
+
+    def fake_ocr(image, *, lang, config):
+        seen_sizes.append(image.size)
+        return "اسم المنتج ١٠٠ جنيه"
+
+    monkeypatch.setattr(preview.pytesseract, "image_to_string", fake_ocr)
+    preview.image_ocr(str(image_path))
+    assert seen_sizes == [(800, 600)]
+
+
+def test_image_ocr_downscales_oversized_images_to_1200px(tmp_path, monkeypatch):
+    image_path = tmp_path / "large.png"
+    Image.new("RGB", (2400, 1200), "white").save(image_path)
+    seen_sizes = []
+
+    def fake_ocr(image, *, lang, config):
+        seen_sizes.append(image.size)
+        return "اسم المنتج ١٠٠ جنيه"
+
+    monkeypatch.setattr(preview.pytesseract, "image_to_string", fake_ocr)
+    preview.image_ocr(str(image_path))
+    assert seen_sizes == [(1200, 600)]

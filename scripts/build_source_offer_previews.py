@@ -20,9 +20,15 @@ def image_ocr(path: str) -> str:
     """Run two complementary OCR layouts on one enhanced grayscale image."""
     with Image.open(path) as source:
         image = source.convert("RGB")
-        if max(image.size) < 1600:
-            factor = min(2.0, 1600 / max(image.size))
-            image = image.resize((int(image.width*factor), int(image.height*factor)), Image.Resampling.LANCZOS)
+        # Avoid expensive upscaling of small source images. Tesseract handles
+        # native-resolution images directly; only shrink oversized images.
+        max_dimension = 1200
+        if max(image.size) > max_dimension:
+            factor = max_dimension / max(image.size)
+            image = image.resize(
+                (max(1, int(image.width * factor)), max(1, int(image.height * factor))),
+                Image.Resampling.LANCZOS,
+            )
         gray = ImageOps.autocontrast(ImageOps.grayscale(image))
         enhanced = ImageEnhance.Contrast(gray).enhance(1.5)
         primary = pytesseract.image_to_string(

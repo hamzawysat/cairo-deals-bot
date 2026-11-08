@@ -43,10 +43,15 @@ jobs:
         with:
           path: /var/cache/apt/archives
           key: ${{ runner.os }}-tesseract-ocr-ara-eng-v1
-      - name: Install Arabic and English OCR engine
+      - name: Ensure Arabic and English OCR engine is available
         run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng fonts-noto-core
+          if ! command -v tesseract >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng
+          elif ! tesseract --list-langs 2>/dev/null | grep -qx ara; then
+            sudo apt-get update
+            sudo apt-get install -y tesseract-ocr-ara
+          fi
       - name: Install project dependencies
         run: pip install -r requirements.txt
       - name: Build review-only previews from source Telegram posts
