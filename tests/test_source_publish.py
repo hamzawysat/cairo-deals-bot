@@ -1,5 +1,6 @@
 from src.source_publish import (
-    mark_candidate_published,\n    mark_platform_published,
+    mark_candidate_published,
+    mark_platform_published,
     select_unpublished_candidate,
     validate_approved_image_record,
 )
