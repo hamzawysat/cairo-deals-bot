@@ -14,12 +14,14 @@ MAX_IMAGE_BYTES = 12 * 1024 * 1024
 USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_deals)"
 class _ImageParser(HTMLParser):
     def __init__(self):
-        super().__init__(); self.image_url = None
+        super().__init__(); self.image_url = None; self.title = None; self.price = None
     def handle_starttag(self, tag, attrs):
         values = {key.lower(): value for key, value in attrs if key}
         if tag.lower() == "meta":
             key = (values.get("property") or values.get("name") or "").lower()
             if key in {"og:image", "twitter:image"}: self.image_url = values.get("content") or self.image_url
+            elif key in {"og:title", "twitter:title"}: self.title = values.get("content") or self.title
+            elif key in {"product:price:amount", "og:price:amount", "price"}: self.price = values.get("content") or self.price
         elif tag.lower() == "img" and values.get("data-old-hires"): self.image_url = values["data-old-hires"]
 def _valid_image_url(url: str | None) -> bool:
     try:
@@ -36,6 +38,28 @@ def find_amazon_product_image(asin: str, *, session=None) -> str:
         return parser.image_url
     finally:
         if owns_session: client.close()
+def find_amazon_product_details(asin: str, *, session=None) -> dict:
+    """Fetch Amazon page once, return live image + title + price. No API needed."""
+    if not re.fullmatch(r"[A-Z0-9]{10}", (asin or "").upper()): raise ValueError("Invalid Amazon ASIN")
+    client = session or requests.Session(); owns_session = session is None
+    try:
+        response = client.get(PRODUCT_PAGE.format(asin=asin.upper()), headers={"User-Agent": USER_AGENT, "Accept-Language": "ar-EG,ar;q=0.9,en;q=0.7"}, timeout=(8, 18))
+        response.raise_for_status(); parser = _ImageParser(); parser.feed(response.text)
+        out = {}
+        if _valid_image_url(parser.image_url): out["image_url"] = parser.image_url
+        if parser.title: out["title"] = parser.title.strip()
+        if parser.price:
+            try:
+                out["price"] = f"{float(parser.price):.2f} جنيه".replace(".00 جنيه", " جنيه").strip()
+                # Keep as "159.99 جنيه" - strip trailing .00 only for whole pounds
+                if out["price"].endswith(".00 جنيه"): out["price"] = out["price"].replace(".00 جنيه", " جنيه")
+            except ValueError:
+                out["price"] = parser.price.strip()
+        return out
+    finally:
+        if owns_session: client.close()
+
+
 def _load_product_image(url: str, *, session=None) -> Image.Image:
     if not _valid_image_url(url): raise ValueError("Product image URL is not on an approved Amazon image CDN")
     client = session or requests.Session(); owns_session = session is None
