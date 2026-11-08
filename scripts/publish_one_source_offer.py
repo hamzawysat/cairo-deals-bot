@@ -14,8 +14,10 @@ from telethon.sessions import StringSession
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.source_offer import build_source_candidate
-from src.source_publish import mark_platform_published, select_unpublished_candidate
+from src.source_publish import mark_platform_published
 from src.source_publisher import publish_facebook, publish_telegram
+from src.telegram_product_card import create_telegram_product_card, find_amazon_product_details
+import tempfile
 
 REPORT_PATH = Path("artifacts/source-offer-previews.json")
 STATE_PATH = Path("artifacts/source-offer-state.json")
@@ -71,15 +73,15 @@ async def publish_one() -> bool:
             print("TELEGRAM BLOCKED: user session is not authorized.")
             return False
 
-        # Use the preview if present; otherwise fetch the exact requested source post.
-        selected_report = {
-            **report,
-            "candidates": [
+        # Select the exact manually requested source post even if persisted status
+        # says it was published; each destination is verified independently below.
+        candidate = next(
+            (
                 item for item in report.get("candidates", [])
                 if str(item.get("source_message_id", "")) == str(selected_id)
-            ],
-        }
-        candidate = select_unpublished_candidate(selected_report, state)
+            ),
+            None,
+        )
         if candidate is None:
             source = await asyncio.wait_for(client.get_entity(SOURCE_CHANNEL), timeout=20)
             message = await asyncio.wait_for(
@@ -104,14 +106,17 @@ async def publish_one() -> bool:
                 print("PUBLISH BLOCKED: source post needs a valid Amazon link, product name, and EGP price.")
                 return False
             candidate["source_post_url"] = f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
-            candidate = select_unpublished_candidate({"candidates": [candidate]}, state)
-            if candidate is None:
-                print("PUBLISH BLOCKED: this exact source message was already fully published.")
-                return False
 
         message_key = str(candidate["source_message_id"])
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         caption = str(candidate.get("caption_preview") or "").strip()
+        live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
+        if not live.get("title") or not live.get("image_url"):
+            print("PUBLISH BLOCKED: matching Amazon product image/title could not be verified.")
+            return False
+        image_url = str(live["image_url"])
+        product_name = str(candidate.get("product_name_source") or live["title"])
+        product_price = str(live.get("price") or candidate.get("advertised_price") or "")
         if not caption:
             print("PUBLISH BLOCKED: candidate caption is empty.")
             return False
@@ -130,7 +135,7 @@ async def publish_one() -> bool:
                 return False
             try:
                 facebook_id = await asyncio.to_thread(
-                    publish_facebook, meta_token, caption, None
+                    publish_facebook, meta_token, caption, image_url
                 )
             except Exception:
                 print("FACEBOOK FAILED: Telegram was not attempted; retry is safe.")
@@ -141,11 +146,33 @@ async def publish_one() -> bool:
             print(f"FACEBOOK CONFIRMED: Meta post {facebook_id}")
 
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
-        if not platform_status.get("telegram"):
-            target = await asyncio.wait_for(client.get_entity(TARGET_CHANNEL), timeout=20)
-            telegram_id = await asyncio.wait_for(
-                publish_telegram(client, target, caption, None), timeout=45
-            )
+        target = await asyncio.wait_for(client.get_entity(TARGET_CHANNEL), timeout=20)
+        saved_telegram_id = platform_status.get("telegram")
+        if saved_telegram_id:
+            try:
+                existing = await asyncio.wait_for(
+                    client.get_messages(target, ids=int(saved_telegram_id)), timeout=20
+                )
+            except (TypeError, ValueError):
+                existing = None
+            if existing is None:
+                platform_status.pop("telegram", None)
+                state.setdefault("platform_status", {})[message_key] = platform_status
+                save_state(state)
+                saved_telegram_id = None
+                print("TELEGRAM STALE STATUS CLEARED: saved destination message does not exist.")
+        if not saved_telegram_id:
+            with tempfile.TemporaryDirectory(prefix="cairo-manual-card-") as temp_dir:
+                card_path = create_telegram_product_card(
+                    asin=str(candidate["asin"]),
+                    product_name=product_name,
+                    price=product_price,
+                    output_path=Path(temp_dir) / "telegram-product-card.jpg",
+                    image_url=image_url,
+                )
+                telegram_id = await asyncio.wait_for(
+                    publish_telegram(client, target, caption, str(card_path)), timeout=60
+                )
             state = mark_platform_published(state, candidate, "telegram", telegram_id)
             save_state(state)
             print(f"TELEGRAM CONFIRMED: destination message {telegram_id}")
