@@ -81,9 +81,13 @@ def resolve_amazon_product_url(url: str, *, session=None, max_redirects: int=8, 
                 if response.status_code in (301,302,303,307,308):
                     loc=response.headers.get("Location")
                     if not loc: return None
-                    if rn>=max_redirects: return None
+                    if rn>=max_redirects:
+                        if diagnostics is not None: diagnostics["reason"]="redirect_limit_exceeded"
+                        return None
                     current=urljoin(current,loc); continue
-                if response.status_code<200 or response.status_code>=300: return None
+                if response.status_code<200 or response.status_code>=300:
+                    if diagnostics is not None: diagnostics["reason"]="http_status_rejected"
+                    return None
                 parsed=urlparse(current); parts=[p for p in parsed.path.split("/") if p]
                 if (parsed.hostname or "").lower()=="link.amazon" and len(parts)==1 and ASIN_RE.fullmatch(parts[0].upper()):
                     asin=parts[0].upper(); return asin, f"https://www.amazon.eg/dp/{asin}"
