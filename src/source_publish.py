@@ -64,3 +64,25 @@ def mark_candidate_published(state: dict, candidate: dict) -> dict:
     updated["published_message_ids"] = sorted(message_ids)[-1000:]
     updated["published_asins"] = sorted(asins)[-1000:]
     return updated
+
+
+def mark_platform_published(state: dict, candidate: dict, platform: str, remote_id: str) -> dict:
+    """Persist one destination confirmation independently for safe partial retries."""
+    if platform not in {"telegram", "facebook"}:
+        raise ValueError("Unsupported publishing platform")
+    updated = dict(state)
+    statuses = dict(updated.get("platform_status", {}))
+    key = str(candidate["source_message_id"])
+    item = dict(statuses.get(key, {}))
+    item[platform] = str(remote_id)
+    item["asin"] = str(candidate["asin"]).upper()
+    statuses[key] = item
+    updated["platform_status"] = statuses
+    if item.get("telegram") and item.get("facebook"):
+        message_ids = {int(value) for value in updated.get("published_message_ids", [])}
+        asins = {str(value).upper() for value in updated.get("published_asins", [])}
+        message_ids.add(int(candidate["source_message_id"]))
+        asins.add(str(candidate["asin"]).upper())
+        updated["published_message_ids"] = sorted(message_ids)[-1000:]
+        updated["published_asins"] = sorted(asins)[-1000:]
+    return updated
