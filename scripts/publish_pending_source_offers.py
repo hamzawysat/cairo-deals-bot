@@ -16,7 +16,7 @@ from telethon.sessions import StringSession
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.source_publish import mark_platform_published
 from src.source_publisher import publish_facebook, publish_telegram
-from src.telegram_product_card import create_telegram_product_card
+from src.telegram_product_card import create_telegram_product_card, find_amazon_product_details
 
 STATE_PATH = Path("artifacts/source-offer-state.json")
 SETTINGS_PATH = Path("config/settings.json")
@@ -176,6 +176,17 @@ async def publish_pending() -> bool:
             attempted += 1
             try:
                 message_id = int(candidate["source_message_id"])
+                # FIX: refresh price/name from Amazon page itself (no API) before building caption.
+                # Source message price can be stale (146 vs live 159.99). Live page wins.
+                try:
+                    _live = find_amazon_product_details(str(candidate.get("asin") or ""))
+                    if _live.get("price"):
+                        candidate = dict(candidate); candidate["advertised_price"] = _live["price"]
+                    if _live.get("title"):
+                        # Amazon og:title is clean: "بخاخ سبلاش للجسم جولد سبيل..." - use it if source name is garbled
+                        candidate = dict(candidate); candidate["product_name_source"] = _live["title"]
+                except Exception:
+                    pass
                 # FIX: rebuild caption at publish time instead of using old stored caption_preview
                 caption = _rebuild_caption(candidate, for_telegram=False)
                 telegram_caption = _rebuild_caption(candidate, for_telegram=True)
