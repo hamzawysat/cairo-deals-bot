@@ -53,6 +53,15 @@ async def publish_one() -> bool:
         print("PUBLISH BLOCKED: enter the exact source post ID you reviewed.")
         return False
     selected_id = int(raw_source_id)
+    import time
+    last_facebook = state.get("last_facebook_publish_at") or 0
+    try:
+        last_facebook = float(last_facebook)
+    except (TypeError, ValueError):
+        last_facebook = 0
+    if last_facebook and time.time() - last_facebook < 2 * 60 * 60:
+        print("PUBLISH BLOCKED: Facebook's two-hour publishing interval has not elapsed.")
+        return False
     meta_token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
     raw_id = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
@@ -127,6 +136,7 @@ async def publish_one() -> bool:
                 print("FACEBOOK FAILED: Telegram was not attempted; retry is safe.")
                 return False
             state = mark_platform_published(state, candidate, "facebook", facebook_id)
+            state["last_facebook_publish_at"] = time.time()
             save_state(state)
             print(f"FACEBOOK CONFIRMED: Meta post {facebook_id}")
 
