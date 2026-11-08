@@ -80,3 +80,24 @@ def mark_platform_published(state: dict, candidate: dict, platform: str, remote_
         message_ids.add(int(candidate["source_message_id"]))
         updated["published_message_ids"] = sorted(message_ids)[-1000:]
     return updated
+
+
+def defer_candidates_for_retry(pending: list[dict], deferred: list[dict]) -> list[dict]:
+    """Keep failed transient offers queued, moving them behind the next offer."""
+    deferred_keys = {
+        str(item.get("source_product_key", item.get("source_message_id")))
+        for item in deferred if isinstance(item, dict)
+    }
+    ordered = [
+        item for item in pending
+        if str(item.get("source_product_key", item.get("source_message_id"))) not in deferred_keys
+    ]
+    # Preserve retry order and place the deferred block directly after the next candidate.
+    unique_deferred = []
+    seen = set()
+    for item in deferred:
+        key = str(item.get("source_product_key", item.get("source_message_id")))
+        if key not in seen:
+            seen.add(key)
+            unique_deferred.append(item)
+    return ordered[:1] + unique_deferred + ordered[1:]

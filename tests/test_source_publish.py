@@ -131,3 +131,40 @@ def test_automatic_publisher_is_gated_and_uses_persisted_pending_queue():
     assert 'dry_run' in content
     assert 'require_image' in content
     assert 'mark_platform_published' in content
+
+
+def test_deferred_candidates_move_to_second_position():
+    from src.source_publish import defer_candidates_for_retry
+
+    first = {"source_message_id": 1}
+    failed = {"source_message_id": 2}
+    third = {"source_message_id": 3}
+    assert defer_candidates_for_retry([first, failed, third], [failed]) == [first, failed, third]
+
+
+def test_failed_first_candidate_moves_behind_next_candidate():
+    from src.source_publish import defer_candidates_for_retry
+
+    failed = {"source_message_id": 1}
+    next_offer = {"source_message_id": 2}
+    third = {"source_message_id": 3}
+    assert defer_candidates_for_retry([failed, next_offer, third], [failed]) == [next_offer, failed, third]
+
+
+def test_multiple_failed_candidates_remain_queued_in_stable_order():
+    from src.source_publish import defer_candidates_for_retry
+
+    failed_one = {"source_message_id": 1}
+    failed_two = {"source_message_id": 2}
+    next_offer = {"source_message_id": 3}
+    assert defer_candidates_for_retry(
+        [failed_one, failed_two, next_offer], [failed_one, failed_two]
+    ) == [next_offer, failed_one, failed_two]
+
+
+def test_retry_queue_does_not_duplicate_deferred_candidate():
+    from src.source_publish import defer_candidates_for_retry
+
+    failed = {"source_message_id": 1}
+    next_offer = {"source_message_id": 2}
+    assert defer_candidates_for_retry([failed, next_offer], [failed, failed]) == [next_offer, failed]
