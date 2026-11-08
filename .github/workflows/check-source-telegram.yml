@@ -63,7 +63,8 @@ jobs:
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
           SOURCE_MESSAGE_ID: ${{ inputs.source_message_id }}
         run: python scripts/publish_one_source_offer.py
-      - name: Save source offer duplicate state
+      - name: Save source offer delivery state
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: artifacts/source-offer-state.json
