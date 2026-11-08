@@ -188,6 +188,27 @@ async def publish_pending() -> bool:
             # Telegram every run. Facebook only if 2 hours passed since last Facebook post.
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             telegram_id = platform_status.get("telegram")
+            if telegram_id:
+                try:
+                    existing = await asyncio.wait_for(
+                        client.get_messages(target, ids=int(telegram_id)), timeout=20
+                    )
+                except (TypeError, ValueError):
+                    existing = None
+                except Exception:
+                    # Do not clear a saved delivery record when Telegram cannot be checked.
+                    existing = "CHECK_FAILED"
+                if existing is None:
+                    platform_status.pop("telegram", None)
+                    state.setdefault("platform_status", {})[key] = platform_status
+                    save_state(state)
+                    telegram_id = None
+                    print(f"TELEGRAM STALE STATUS CLEARED for source {message_id}: saved destination message does not exist.")
+                elif existing == "CHECK_FAILED":
+                    all_ok = False
+                    deferred_candidates.append(candidate)
+                    print(f"TELEGRAM VERIFY FAILED for source {message_id}: could not verify saved destination message; queued for retry.")
+                    continue
             if not telegram_id:
                 try:
                     with tempfile.TemporaryDirectory(prefix="cairo-telegram-card-") as temp_dir:
@@ -231,7 +252,7 @@ async def publish_pending() -> bool:
                     try:
                         # Source-channel photos are not reused without documented image rights.
                         facebook_id = await asyncio.to_thread(
-                            publish_facebook, meta_token, caption, None
+                            publish_facebook, meta_token, caption, str(candidate["_live_image_url"])
                         )
                         state = mark_platform_published(state, candidate, "facebook", facebook_id)
                         import time as _time
