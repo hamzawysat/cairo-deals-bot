@@ -3,10 +3,15 @@ on:
   workflow_dispatch:
     inputs:
       publish_one:
-        description: "Publish exactly one candidate with an explicitly authorized product image"
+        description: "Publish exactly one manually selected and reviewed source offer"
         required: false
         type: boolean
         default: false
+      source_message_id:
+        description: "Exact source post ID reviewed for this one-time publication"
+        required: false
+        type: string
+        default: ""
   schedule:
     - cron: "*/10 * * * *"
 permissions:
@@ -56,6 +61,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          SOURCE_MESSAGE_ID: ${{ inputs.source_message_id }}
         run: python scripts/publish_one_source_offer.py
       - name: Save source offer duplicate state
         uses: actions/cache/save@v4
