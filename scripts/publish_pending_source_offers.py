@@ -21,6 +21,9 @@ from src.telegram_product_card import create_telegram_product_card
 STATE_PATH = Path("artifacts/source-offer-state.json")
 SETTINGS_PATH = Path("config/settings.json")
 
+TELEGRAM_LINK = "https://t.me/cairo_deals"
+FACEBOOK_LINK = "https://www.facebook.com/share/19hQqVpCuG/"
+
 
 def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -31,6 +34,34 @@ def save_state(state: dict) -> None:
     temporary = STATE_PATH.with_suffix(".tmp")
     temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
     temporary.replace(STATE_PATH)
+
+
+def _rebuild_caption(candidate: dict) -> str:
+    """Rebuild caption at publish time so old stored captions don't keep the removed disclaimer.
+
+    Old pending candidates were stored with the removed disclaimer and without
+    the follow links. Rebuilding here makes them publish with the current format.
+    """
+    name = str(candidate.get("product_name_source") or "").strip()
+    price = str(candidate.get("advertised_price") or "").strip()
+    url = str(candidate.get("affiliate_url") or "").strip()
+    if not name or not url:
+        # Fall back to stored caption only if we can't rebuild (should not happen for valid candidates)
+        return str(candidate.get("caption_preview") or "").strip()
+    lines = [
+        "✨ عرض جديد من Cairo Deals",
+        "",
+        f"📦 {name}",
+        "",
+        f"💰 السعر المعلن: {price}" if price else "",
+        "",
+        "🛒 تفاصيل المنتج والشراء من هنا:",
+        url,
+        "",
+        f"تابعنا: تليجرام {TELEGRAM_LINK} | فيسبوك {FACEBOOK_LINK}",
+    ]
+    # Drop the empty price line when there is no price (store offers)
+    return "\n".join([ln for ln in lines if ln != ""])
 
 
 async def publish_pending() -> bool:
@@ -102,7 +133,8 @@ async def publish_pending() -> bool:
             attempted += 1
             try:
                 message_id = int(candidate["source_message_id"])
-                caption = str(candidate.get("caption_preview") or "").strip()
+                # FIX: rebuild caption at publish time instead of using old stored caption_preview
+                caption = _rebuild_caption(candidate)
                 if not caption or not candidate.get("affiliate_url") or not candidate.get("asin"):
                     print(f"SKIPPED source message {message_id}: candidate data is incomplete.")
                     continue
