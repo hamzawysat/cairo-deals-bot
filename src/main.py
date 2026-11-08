@@ -160,6 +160,7 @@ def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as db:
         db.execute("CREATE TABLE IF NOT EXISTS posted (offer_id TEXT PRIMARY KEY, message_id TEXT, posted_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+        db.execute("CREATE TABLE IF NOT EXISTS facebook_post_state (id INTEGER PRIMARY KEY CHECK (id = 1), posted_at TEXT NOT NULL)")
 
 
 def _target_eligible_offers(eligible, target_offer_id):
