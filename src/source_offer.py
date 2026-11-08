@@ -196,4 +196,3 @@ def build_source_candidates(*, message_id: int, message_text: str, ocr_text: str
             c["is_split_from_combined"]=True
             out.append(c)
     return out
-
