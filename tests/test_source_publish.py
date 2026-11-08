@@ -1,5 +1,5 @@
 from src.source_publish import (
-    mark_candidate_published,
+    mark_candidate_published,\n    mark_platform_published,
     select_unpublished_candidate,
     validate_approved_image_record,
 )
@@ -80,3 +80,20 @@ def test_source_publisher_scripts_are_valid_python():
         "scripts/inspect_source_samples.py",
     ):
         ast.parse(Path(filename).read_text(encoding="utf-8"), filename=filename)
+
+
+
+def test_platform_delivery_state_allows_safe_partial_retry():
+    candidate = {"source_message_id": 22, "asin": "B0ABC12345"}
+    state = mark_platform_published({}, candidate, "facebook", "buffer-123")
+    status = state["platform_status"]["22"]
+    assert status["facebook"] == "buffer-123"
+    assert "telegram" not in status
+    assert state.get("published_message_ids", []) == []
+
+    state = mark_platform_published(state, candidate, "telegram", "telegram-456")
+    status = state["platform_status"]["22"]
+    assert status["facebook"] == "buffer-123"
+    assert status["telegram"] == "telegram-456"
+    assert state["published_message_ids"] == [22]
+    assert state["published_asins"] == ["B0ABC12345"]
