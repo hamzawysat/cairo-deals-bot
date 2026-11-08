@@ -92,7 +92,12 @@ def defer_candidates_for_retry(pending: list[dict], deferred: list[dict]) -> lis
         item for item in pending
         if str(item.get("source_product_key", item.get("source_message_id"))) not in deferred_keys
     ]
-    # A failed offer gets the second queue position, or first if it is the only item.
-    for item in reversed(deferred):
-        ordered.insert(min(1, len(ordered)), item)
-    return ordered
+    # Preserve retry order and place the deferred block directly after the next candidate.
+    unique_deferred = []
+    seen = set()
+    for item in deferred:
+        key = str(item.get("source_product_key", item.get("source_message_id")))
+        if key not in seen:
+            seen.add(key)
+            unique_deferred.append(item)
+    return ordered[:1] + unique_deferred + ordered[1:]
