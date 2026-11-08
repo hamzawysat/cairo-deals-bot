@@ -51,9 +51,9 @@ jobs:
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
         run: python scripts/build_source_offer_previews.py
       - name: Automatically publish queued Amazon offers
-        if: ${{ github.event_name == 'workflow_dispatch' && vars.SOURCE_AUTO_PUBLISH_ENABLED == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
-          SOURCE_AUTO_PUBLISH_ENABLED: ${{ vars.SOURCE_AUTO_PUBLISH_ENABLED }}
+          SOURCE_AUTO_PUBLISH_ENABLED: "true"
           TARGET_TELEGRAM_CHANNEL: "@cairo_deals"
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
