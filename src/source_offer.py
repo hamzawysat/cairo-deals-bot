@@ -1,4 +1,3 @@
-# FIXED 2026-11-08 - diagnostics restored (redirect_limit_exceeded + http_status_rejected)
 """Source-first Amazon offer extraction with strict redirect allowlisting."""
 from __future__ import annotations
 import ipaddress
@@ -81,38 +80,24 @@ def resolve_amazon_product_url(url: str, *, session=None, max_redirects: int=8, 
             try:
                 if response.status_code in (301,302,303,307,308):
                     loc=response.headers.get("Location")
-                    if not loc:
-                        if diagnostics is not None: diagnostics["reason"]="redirect_without_location"
-                        return None
-                    if rn>=max_redirects:
-                        if diagnostics is not None: diagnostics["reason"]="redirect_limit_exceeded"
-                        return None
+                    if not loc: return None
+                    if rn>=max_redirects: return None
                     current=urljoin(current,loc); continue
-                if diagnostics is not None: diagnostics["final_status"]=response.status_code; diagnostics["final_host"]=host; diagnostics["final_path"]=urlparse(current).path[:100]
-                if response.status_code<200 or response.status_code>=300:
-                    if diagnostics is not None: diagnostics["reason"]="http_status_rejected"
-                    return None
+                if response.status_code<200 or response.status_code>=300: return None
                 parsed=urlparse(current); parts=[p for p in parsed.path.split("/") if p]
                 if (parsed.hostname or "").lower()=="link.amazon" and len(parts)==1 and ASIN_RE.fullmatch(parts[0].upper()):
-                    asin=parts[0].upper()
-                    if diagnostics is not None: diagnostics["resolved_asin"]=asin
-                    return asin, f"https://www.amazon.eg/dp/{asin}"
+                    asin=parts[0].upper(); return asin, f"https://www.amazon.eg/dp/{asin}"
                 asin=None
                 for i,part in enumerate(parts[:-1]):
                     if part.lower() in {"dp","product"} and ASIN_RE.fullmatch(parts[i+1].upper()): asin=parts[i+1].upper(); break
                 if asin is None:
                     m=re.search(r"/gp/aw/d/([A-Z0-9]{10})(?:/|$)", parsed.path, re.I)
                     if m: asin=m.group(1).upper()
-                if asin is None:
-                    if diagnostics is not None: diagnostics["reason"]="final_url_has_no_asin"
-                    return None
-                if diagnostics is not None: diagnostics["resolved_asin"]=asin
+                if asin is None: return None
                 return asin, f"https://www.amazon.eg/dp/{asin}"
             finally: response.close()
         return None
-    except requests.RequestException as exc:
-        if diagnostics is not None: diagnostics["reason"]="request_exception"; diagnostics["error_type"]=type(exc).__name__
-        return None
+    except requests.RequestException: return None
     finally:
         if owns: client.close()
 
@@ -155,7 +140,7 @@ def _make_candidate(*, message_id, message_text, ocr_text, asin, tracking_id, so
     if not name or not source_price: return None
     price, currency = source_price
     affiliate_url = build_amazon_affiliate_url(asin, tracking_id)
-    return {"source_channel":source_channel,"source_message_id":int(message_id),"product_name_source":name,"asin":asin,"advertised_price":price,"currency":currency,"price_source":"source_message_explicit_currency","affiliate_url":affiliate_url,"caption_preview":(f"✨ عرض جديد من Cairo Deals\n\n📦 {name}\n\n💰 السعر المعلن: {price}\n\n🛒 تفاصيل المنتج والشراء من هنا:\n{affiliate_url}\n\nتابعنا: تليجرام https://t.me/cairo_deals | فيسبوك https://www.facebook.com/share/19hQqVpCuG/"),"image_status":"source_image_review_only_not_cleared_for_republication","publishing_performed":False,"review_status":"preview_ready_requires_approved_image_and_human_review",}
+    return {"source_channel":source_channel,"source_message_id":int(message_id),"product_name_source":name,"asin":asin,"advertised_price":price,"currency":currency,"price_source":"source_message_explicit_currency","affiliate_url":affiliate_url,"caption_preview":(f"✨ عرض جديد من Cairo Deals\n\n📦 {name}\n\n💰 السعر المعلن: {price}\n\n🛒 تفاصيل المنتج والشراء من هنا:\n{affiliate_url}\n\nقد يتغير السعر أو التوافر لدى البائع."),"image_status":"source_image_review_only_not_cleared_for_republication","publishing_performed":False,"review_status":"preview_ready_requires_approved_image_and_human_review",}
 
 def build_source_candidate(*, message_id: int, message_text: str, ocr_text: str="", entity_urls=None, tracking_id: str="cairodeals-21", source_channel: str="@OffersEgyptofficial", resolver=resolve_amazon_product_url):
     # Kept for backward compat: single-product path returns None on multi-ASIN (old tests expect this)
