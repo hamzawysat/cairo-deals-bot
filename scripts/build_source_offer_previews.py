@@ -27,9 +27,19 @@ from src.original_content import extract_egypt_price_text
 from urllib.parse import urlparse
 
 SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@OffersEgyptofficial")
-POST_LIMIT = 30
-PHOTO_LIMIT = 10
+POST_LIMIT = 100
+PHOTO_LIMIT = 20
 TRACKING_ID = "cairodeals-21"
+
+
+def should_process_source_message(
+    message_id: int,
+    published_message_ids: set[int],
+    pending_message_ids: set[int],
+) -> bool:
+    """Revisit unhandled posts even when their IDs are below the old scan cursor."""
+    message_id = int(message_id)
+    return message_id not in published_message_ids and message_id not in pending_message_ids
 
 
 def image_ocr(path: str) -> str:
@@ -93,8 +103,12 @@ async def run() -> bool:
                     continue
                 seen_messages.add(message.id)
                 highest_seen_message_id = max(highest_seen_message_id, int(message.id))
-                # The source iterator is newest-first; only inspect posts beyond the saved cursor.
-                if int(message.id) <= last_seen_message_id:
+                # The cursor is informational only. A previous run may have advanced it
+                # before a post was successfully parsed, so re-evaluate the rolling window.
+                if not should_process_source_message(
+                    message.id, prior_message_ids, pending_message_ids
+                ):
+                    duplicate_skipped += 1
                     continue
                 body = message.message or ""
                 entity_urls = [
@@ -174,9 +188,6 @@ async def run() -> bool:
                     })
                     continue
                 # A new source message remains eligible even if its ASIN appeared before.
-                if message.id in prior_message_ids or message.id in pending_message_ids:
-                    duplicate_skipped += 1
-                    continue
                 candidate["source_post_url"] = f"https://t.me/{SOURCE_CHANNEL.lstrip('@')}/{message.id}"
                 candidate["source_date"] = message.date.isoformat() if message.date else None
                 candidate["ocr_used"] = bool(ocr_text)
