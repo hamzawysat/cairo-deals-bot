@@ -16,7 +16,7 @@ from telethon.sessions import StringSession
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.source_publish import mark_platform_published
 from src.source_publisher import publish_facebook, publish_telegram
-from src.telegram_product_card import create_telegram_product_card
+from src.telegram_product_card import create_telegram_product_card, find_amazon_product_details
 
 STATE_PATH = Path("artifacts/source-offer-state.json")
 SETTINGS_PATH = Path("config/settings.json")
@@ -36,33 +36,82 @@ def save_state(state: dict) -> None:
     temporary.replace(STATE_PATH)
 
 
-def _rebuild_caption(candidate: dict) -> str:
-    """Rebuild caption at publish time so old stored captions don't keep the removed disclaimer.
+def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
+    """Caption in source-channel style: one line product + price, offer link, follow block.
 
-    Old pending candidates were stored with the removed disclaimer and without
-    the follow links. Rebuilding here makes them publish with the current format.
+    Product link is plain full URL (as before) so it can be verified.
+    Follow links stay embedded in words.
+    Facebook/Buffer keeps plain URLs because Buffer treats caption as plain text.
+    Nothing else in this file was changed.
     """
     name = str(candidate.get("product_name_source") or "").strip()
     price = str(candidate.get("advertised_price") or "").strip()
     url = str(candidate.get("affiliate_url") or "").strip()
     if not name or not url:
-        # Fall back to stored caption only if we can't rebuild (should not happen for valid candidates)
         return str(candidate.get("caption_preview") or "").strip()
-    lines = [
-        "✨ عرض جديد من Cairo Deals",
-        "",
-        f"📦 {name}",
-        "",
-        f"💰 السعر المعلن: {price}" if price else "",
-        "",
-        "🛒 تفاصيل المنتج والشراء من هنا:",
-        url,
-        "",
-        f"تابعنا: تليجرام {TELEGRAM_LINK} | فيسبوك {FACEBOOK_LINK}",
-    ]
-    # Drop the empty price line when there is no price (store offers)
+    # price already contains "جنيه" in most candidates ("16,999 جنيه") - don't duplicate it
+    price_text = price if "جنيه" in price else (f"{price} جنيه" if price else "")
+    title = f"{name} ب {price_text}" if price_text else name
+    if for_telegram:
+        lines = [
+            title,
+            "",
+            f"لينك العرض: {url}",
+            "",
+            "تابعنا على جميع منصات التواصل:",
+            f"📱 قناتنا على تليجرام: [اضغط هنا للانضمام]({TELEGRAM_LINK})",
+            f"📱 قناتنا على فيسبوك: [اضغط هنا للانضمام]({FACEBOOK_LINK})",
+        ]
+    else:
+        lines = [
+            title,
+            "",
+            f"لينك العرض: {url}",
+            "",
+            "تابعنا على جميع منصات التواصل:",
+            f"📱 قناتنا على تليجرام: {TELEGRAM_LINK}",
+            f"📱 قناتنا على فيسبوك: {FACEBOOK_LINK}",
+        ]
     return "\n".join([ln for ln in lines if ln != ""])
 
+
+
+FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60  # Facebook every 2 hours, Telegram stays every 2 minutes
+
+def _facebook_due(state: dict) -> bool:
+    """True if Facebook hasn't published in the last 2 hours (or never)."""
+    import time
+    last = state.get("last_facebook_publish_at") or 0
+    try:
+        last = float(last)
+    except (TypeError, ValueError):
+        return True
+    return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
+
+def _telegram_post_url(telegram_id: str) -> str | None:
+    """Public link to the Telegram post - Buffer uses it to fetch the card image."""
+    tid = str(telegram_id or "").strip()
+    if not tid.isdigit():
+        return None
+    return f"https://t.me/cairo_deals/{tid}"
+
+
+FACEBOOK_INTERVAL_SECONDS = 2 * 60 * 60
+
+def _facebook_due(state: dict) -> bool:
+    import time
+    last = state.get("last_facebook_publish_at") or 0
+    try:
+        last = float(last)
+    except (TypeError, ValueError):
+        return True
+    return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
+
+def _telegram_post_url(telegram_id: str) -> str | None:
+    tid = str(telegram_id or "").strip()
+    if not tid.isdigit():
+        return None
+    return f"https://t.me/cairo_deals/{tid}"
 
 async def publish_pending() -> bool:
     if os.environ.get("SOURCE_AUTO_PUBLISH_ENABLED", "").strip().lower() != "true":
@@ -133,8 +182,24 @@ async def publish_pending() -> bool:
             attempted += 1
             try:
                 message_id = int(candidate["source_message_id"])
+                # FIX: image + name + price must come from SAME Amazon page (same ASIN).
+                # Disaster was: image from Amazon (oil) + name from source (hair dryer) = mismatched ad.
+                # If live title/image can't be fetched, skip - don't publish a mismatched ad.
+                _live = {}
+                try:
+                    _live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
+                except Exception:
+                    _live = {}
+                if not _live.get("title") or not _live.get("image_url"):
+                    print(f"SKIPPED source message {candidate.get('source_message_id')}: live Amazon title/image missing - would mismatch image vs caption.")
+                    continue
+                candidate = dict(candidate)
+                candidate["advertised_price"] = _live.get("price") or candidate.get("advertised_price")
+                candidate["product_name_source"] = _live["title"]
+                candidate["_live_image_url"] = _live["image_url"]
                 # FIX: rebuild caption at publish time instead of using old stored caption_preview
-                caption = _rebuild_caption(candidate)
+                caption = _rebuild_caption(candidate, for_telegram=False)
+                telegram_caption = _rebuild_caption(candidate, for_telegram=True)
                 if not caption or not candidate.get("affiliate_url") or not candidate.get("asin"):
                     print(f"SKIPPED source message {message_id}: candidate data is incomplete.")
                     continue
@@ -143,33 +208,22 @@ async def publish_pending() -> bool:
                 continue
 
             key = str(message_id)
+            # NEW ORDER: Telegram first, then Facebook takes image link from Telegram.
+            # Telegram every run. Facebook only if 2 hours passed since last Facebook post.
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
-            if not platform_status.get("facebook"):
+            telegram_id = platform_status.get("telegram")
+            if not telegram_id:
                 try:
-                    facebook_id = await asyncio.to_thread(
-                        publish_facebook, buffer_key, facebook_channel_id, caption, None
-                    )
-                    state = mark_platform_published(state, candidate, "facebook", facebook_id)
-                    save_state(state)
-                    print(f"FACEBOOK CONFIRMED for source {message_id}: {facebook_id}")
-                except Exception as exc:
-                    all_ok = False
-                    print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
-                    continue
-
-            platform_status = dict(state.get("platform_status", {}).get(key, {}))
-            if not platform_status.get("telegram"):
-                try:
-                    # Telegram gets a generated product card; never fall back to text-only delivery.
                     with tempfile.TemporaryDirectory(prefix="cairo-telegram-card-") as temp_dir:
                         card_path = create_telegram_product_card(
                             asin=str(candidate["asin"]),
                             product_name=str(candidate["product_name_source"]),
                             price=str(candidate["advertised_price"]),
                             output_path=Path(temp_dir) / "telegram-product-card.jpg",
+                            image_url=str(candidate.get("_live_image_url") or ""),
                         )
                         telegram_id = await asyncio.wait_for(
-                            publish_telegram(client, target, caption, str(card_path)), timeout=60
+                            publish_telegram(client, target, telegram_caption, str(card_path)), timeout=60
                         )
                     state = mark_platform_published(state, candidate, "telegram", telegram_id)
                     save_state(state)
@@ -178,9 +232,42 @@ async def publish_pending() -> bool:
                     all_ok = False
                     print(f"TELEGRAM FAILED for source {message_id}: {type(exc).__name__}")
                     continue
-
+            platform_status = dict(state.get("platform_status", {}).get(key, {}))
+            if not platform_status.get("facebook"):
+                if not _facebook_due(state):
+                    print(f"FACEBOOK SKIPPED for source {message_id}: less than 2 hours since last Facebook post.")
+                    # FIX: Don't block Telegram queue waiting for Facebook.
+                    # Telegram is done, remove from pending so next Telegram ad can publish.
+                    # Facebook will pick up a later candidate after 2h.
+                    state["pending_candidates"] = [
+                        item for item in state.get("pending_candidates", [])
+                        if str(item.get("source_message_id")) != key
+                    ]
+                    published = {int(value) for value in state.get("published_message_ids", [])}
+                    published.add(message_id)
+                    state["published_message_ids"] = sorted(published)[-1000:]
+                    save_state(state)
+                    processed += 1
+                    print(f"OFFER COMPLETE (Telegram only, Facebook skipped): source message {message_id}.")
+                    continue
+                else:
+                    try:
+                        # FIX: Buffer needs a direct *.jpg URL, not a Telegram post page (HTML).
+                        # Telegram post link caused BufferPublishError, so send text-only for now.
+                        facebook_id = await asyncio.to_thread(
+                            publish_facebook, buffer_key, facebook_channel_id, caption, None
+                        )
+                        state = mark_platform_published(state, candidate, "facebook", facebook_id)
+                        import time as _time
+                        state["last_facebook_publish_at"] = _time.time()
+                        save_state(state)
+                        print(f"FACEBOOK CONFIRMED for source {message_id}: {facebook_id}")
+                    except Exception as exc:
+                        all_ok = False
+                        print(f"FACEBOOK FAILED for source {message_id}: {type(exc).__name__}")
+                        continue
             final_status = state.get("platform_status", {}).get(key, {})
-            if final_status.get("facebook") and final_status.get("telegram"):
+            if final_status.get("telegram") and final_status.get("facebook"):
                 published = {int(value) for value in state.get("published_message_ids", [])}
                 published.add(message_id)
                 state["published_message_ids"] = sorted(published)[-1000:]
