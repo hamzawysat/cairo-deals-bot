@@ -45,12 +45,12 @@ Example entry (replace with a real, authorized image and permission record):
 ## One-item publishing
 
 Use **Actions → Build source offer previews → Run workflow**. Keep
-`publish_one` unchecked for preview-only operation. Checking it is an explicit
-manual approval to publish exactly one review-ready offer as a text post to
+`publish_one` unchecked for preview-only operation. Checking it and entering the exact source post ID from the preview report is an
+explicit manual approval to publish that one reviewed offer as a text post to
 `@cairo_deals` and the configured Facebook page through Buffer.
 
-The publisher requires the Telegram user session, `BUFFER_API_KEY`, and the
-Facebook channel ID in `config/settings.json`. It does not copy the source
+The publisher requires the selected source post ID, Telegram user session,
+`BUFFER_API_KEY`, and the Facebook channel ID in `config/settings.json`. It does not copy the source
 channel photo. The product link is included in the Arabic caption; Telegram
 and Facebook may render their own link previews. This text-only fallback avoids
 reusing an image without documented rights.
