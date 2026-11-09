@@ -74,7 +74,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     return "\n".join(lines).strip()
 
 
-FACEBOOK_INTERVAL_SECONDS = 5 * 60  # Facebook is attempted at most once every five minutes
+FACEBOOK_INTERVAL_SECONDS = 10 * 60  # Facebook is attempted at most once every ten minutes
 
 
 def _facebook_due(state: dict) -> bool:
@@ -171,12 +171,12 @@ async def publish_pending() -> bool:
                     _live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
                 except Exception:
                     _live = {}
-                if not _live.get("title") or not _live.get("image_url"):
-                    print(f"RETRY QUEUED source message {candidate.get('source_message_id')}: live Amazon title/image missing; image is mandatory.")
+                if not _live.get("title") or not _live.get("image_url") or not _live.get("price"):
+                    print(f"RETRY QUEUED source message {candidate.get('source_message_id')}: live Amazon title/image/price missing; Amazon price is mandatory.")
                     deferred_candidates.append(candidate)
                     continue
                 candidate = dict(candidate)
-                candidate["advertised_price"] = _live.get("price") or candidate.get("advertised_price")
+                candidate["advertised_price"] = str(_live["price"]).strip()
                 candidate["product_name_source"] = _choose_product_title(candidate.get("product_name_source"), _live["title"])
                 candidate["_live_image_url"] = _live["image_url"]
                 # FIX: rebuild caption at publish time instead of using old stored caption_preview
@@ -193,7 +193,7 @@ async def publish_pending() -> bool:
 
             key = str(message_id)
             # NEW ORDER: Telegram first, then Facebook takes image link from Telegram.
-            # Telegram every run. Facebook only if 2 hours passed since last Facebook post.
+            # Telegram every run. Facebook only if ten minutes passed since last Facebook post.
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             telegram_id = platform_status.get("telegram")
             if telegram_id:
@@ -245,10 +245,10 @@ async def publish_pending() -> bool:
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             if not platform_status.get("facebook"):
                 if not _facebook_due(state):
-                    print(f"FACEBOOK SKIPPED for source {message_id}: five-minute interval has not elapsed; offer remains queued for Facebook.")
+                    print(f"FACEBOOK SKIPPED for source {message_id}: ten-minute interval has not elapsed; offer remains queued for Facebook.")
                     # Keep the candidate pending. Telegram's independently verified
                     # status prevents duplicates; a later two-minute run retries Facebook
-                    # once the five-minute interval has elapsed.
+                    # once the ten-minute interval has elapsed.
                     save_state(state)
                     continue
                 else:
