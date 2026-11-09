@@ -21,17 +21,34 @@ MAX_IMAGE_BYTES = 12 * 1024 * 1024
 USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_deals)"
 class _ImageParser(HTMLParser):
     def __init__(self):
-        super().__init__(); self.image_url = None; self.title = None; self.price = None
-        self._inside_product_title = False; self._title_parts = []
+        super().__init__()
+        self.image_url = None
+        self.title = None
+        self.price = None
+        self._inside_product_title = False
+        self._title_parts = []
+        self._inside_price = False
+        self._price_depth = 0
+        self._price_parts = []
+
     def handle_starttag(self, tag, attrs):
         values = {key.lower(): value for key, value in attrs if key}
+        classes = set((values.get("class") or "").split())
         if tag.lower() == "meta":
             key = (values.get("property") or values.get("name") or "").lower()
-            if key in {"og:image", "twitter:image"}: self.image_url = values.get("content") or self.image_url
-            elif key in {"og:title", "twitter:title"}: self.title = values.get("content") or self.title
-            elif key in {"product:price:amount", "og:price:amount", "price"}: self.price = values.get("content") or self.price
+            if key in {"og:image", "twitter:image"}:
+                self.image_url = values.get("content") or self.image_url
+            elif key in {"og:title", "twitter:title"}:
+                self.title = values.get("content") or self.title
+            elif key in {"product:price:amount", "og:price:amount", "price"}:
+                self.price = values.get("content") or self.price
         elif tag.lower() == "span" and values.get("id") == "productTitle":
             self._inside_product_title = True
+        elif tag.lower() in {"div", "span"} and "a-price" in classes:
+            self._inside_price = True
+            self._price_depth += 1
+        elif tag.lower() == "span" and "a-offscreen" in classes and self._inside_price:
+            self._price_depth += 1
         elif tag.lower() == "img":
             if values.get("data-old-hires"):
                 self.image_url = values["data-old-hires"]
@@ -43,15 +60,27 @@ class _ImageParser(HTMLParser):
                     pass
             elif values.get("src") and _valid_image_url(values["src"]):
                 self.image_url = values["src"]
+
     def handle_data(self, data):
         if self._inside_product_title:
             self._title_parts.append(data)
+        if self._inside_price and data.strip():
+            self._price_parts.append(data.strip())
+
     def handle_endtag(self, tag):
         if tag.lower() == "span" and self._inside_product_title:
             self._inside_product_title = False
             parsed = " ".join(" ".join(self._title_parts).split())
             if parsed:
                 self.title = parsed
+        if tag.lower() in {"div", "span"} and self._inside_price:
+            self._price_depth -= 1
+            if self._price_depth <= 0:
+                self._inside_price = False
+                parsed_price = " ".join(" ".join(self._price_parts).split())
+                if parsed_price and not self.price:
+                    self.price = parsed_price
+
 def _valid_image_url(url: str | None) -> bool:
     try:
         parsed = urlparse(url or "")
@@ -78,12 +107,13 @@ def find_amazon_product_details(asin: str, *, session=None) -> dict:
         if _valid_image_url(parser.image_url): out["image_url"] = parser.image_url
         if parser.title: out["title"] = parser.title.strip()
         if parser.price:
-            try:
-                out["price"] = f"{float(parser.price):.2f} جنيه".replace(".00 جنيه", " جنيه").strip()
-                # Keep as "159.99 جنيه" - strip trailing .00 only for whole pounds
-                if out["price"].endswith(".00 جنيه"): out["price"] = out["price"].replace(".00 جنيه", " جنيه")
-            except ValueError:
-                out["price"] = parser.price.strip()
+            raw_price = parser.price.strip()
+            normalized = raw_price.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))
+            normalized = normalized.replace("٫", ".").replace("٬", "").replace(",", "")
+            match = re.search(r"\d+(?:\.\d{1,2})?", normalized)
+            if match:
+                amount = float(match.group(0))
+                out["price"] = f"{amount:.2f} جنيه".replace(".00 جنيه", " جنيه")
         return out
     finally:
         if owns_session: client.close()
