@@ -186,6 +186,7 @@ def test_manual_publisher_uses_live_image_and_checks_saved_telegram_message():
     assert 'publish_facebook, meta_token, caption, image_url' in content
     assert 'client.get_messages(target, ids=int(saved_telegram_id))' in content
     assert 'create_telegram_product_card' in content
+    assert "قد يتغير السعر أو التوافر لدى المعلن" in content
 
 
 def test_manual_workflow_does_not_run_automatic_queue_first():
