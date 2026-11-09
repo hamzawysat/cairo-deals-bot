@@ -78,7 +78,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     return "\n".join(lines).strip()
 
 
-FACEBOOK_INTERVAL_SECONDS = 2 * 60  # Temporary Facebook test interval: two minutes
+FACEBOOK_INTERVAL_SECONDS = 60 * 60  # Facebook publishing interval: one hour
 
 
 def _facebook_due(state: dict) -> bool:
@@ -189,7 +189,7 @@ async def publish_pending() -> bool:
 
             key = str(message_id)
             # NEW ORDER: Telegram first, then Facebook takes image link from Telegram.
-            # Telegram every run. Facebook only if 2 hours passed since last Facebook post.
+            # Telegram every run. Facebook only if one hour passed since last Facebook post.
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             telegram_id = platform_status.get("telegram")
             if telegram_id:
@@ -241,10 +241,10 @@ async def publish_pending() -> bool:
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             if not platform_status.get("facebook"):
                 if not _facebook_due(state):
-                    print(f"FACEBOOK SKIPPED for source {message_id}: two-minute interval has not elapsed; offer remains queued for Facebook.")
+                    print(f"FACEBOOK SKIPPED for source {message_id}: one-hour interval has not elapsed; offer remains queued for Facebook.")
                     # Keep the candidate pending. Telegram's independently verified
                     # status prevents duplicates; a later two-minute run retries Facebook
-                    # once the two-minute interval has elapsed.
+                    # once the one-hour interval has elapsed.
                     save_state(state)
                     continue
                 else:
