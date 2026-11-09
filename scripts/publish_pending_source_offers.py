@@ -151,16 +151,10 @@ async def publish_pending() -> bool:
         )
 
         processed = 0
-        attempted = 0
         deferred_candidates = []
         for candidate in pending:
-            # Enforce the per-run limit by candidates ATTEMPTED, not successful
-            # Telegram sends. A Telegram-already-published offer can still need
-            # Facebook retry; without this counter the loop walks the whole queue
-            # when Facebook is failing and floods the retry backlog.
-            if attempted >= max_posts:
+            if processed >= max_posts:
                 break
-            attempted += 1
             try:
                 message_id = int(candidate["source_message_id"])
                 # FIX: image + name + price must come from SAME Amazon page (same ASIN).
@@ -183,12 +177,10 @@ async def publish_pending() -> bool:
                 caption = _rebuild_caption(candidate, for_telegram=False)
                 telegram_caption = _rebuild_caption(candidate, for_telegram=True)
                 if not caption or not candidate.get("affiliate_url") or not candidate.get("asin"):
-                    print(f"SKIPPED source message {message_id}: candidate data is incomplete; moved behind the next candidate.")
-                    deferred_candidates.append(candidate)
+                    print(f"SKIPPED source message {message_id}: candidate data is incomplete.")
                     continue
             except (KeyError, TypeError, ValueError):
-                print("SKIPPED malformed pending candidate; moved behind the next candidate.")
-                deferred_candidates.append(candidate)
+                print("SKIPPED malformed pending candidate.")
                 continue
 
             key = str(message_id)
