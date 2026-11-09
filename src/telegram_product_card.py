@@ -6,6 +6,7 @@ import json
 from urllib.parse import urlparse
 import io
 import re
+import time
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 PRODUCT_PAGE = "https://www.amazon.eg/dp/{asin}"
@@ -18,6 +19,10 @@ YELLOW = "#FFC928"
 RED = "#E53935"
 INK = "#172B45"
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
+IMAGE_READY_DELAY_SECONDS = 3
+IMAGE_DOWNLOAD_ATTEMPTS = 3
+IMAGE_RETRY_DELAY_SECONDS = 3
+MIN_PRODUCT_IMAGE_DIMENSION = 120
 USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_deals)"
 class _ImageParser(HTMLParser):
     def __init__(self):
@@ -90,20 +95,54 @@ def find_amazon_product_details(asin: str, *, session=None) -> dict:
 
 
 def _load_product_image(url: str, *, session=None) -> Image.Image:
-    if not _valid_image_url(url): raise ValueError("Product image URL is not on an approved Amazon image CDN")
-    client = session or requests.Session(); owns_session = session is None
+    """Wait for the Amazon CDN image to settle, then retry incomplete responses."""
+    if not _valid_image_url(url):
+        raise ValueError("Product image URL is not on an approved Amazon image CDN")
+    client = session or requests.Session()
+    owns_session = session is None
+    last_error = None
     try:
-        response = client.get(url, timeout=(8, 20), stream=True, headers={"User-Agent": USER_AGENT}); response.raise_for_status()
-        content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
-        if not content_type.startswith("image/"): raise ValueError("Amazon image response is not an image")
-        data = bytearray()
-        for chunk in response.iter_content(64 * 1024):
-            data.extend(chunk)
-            if len(data) > MAX_IMAGE_BYTES: raise ValueError("Product image exceeds the size limit")
-        image = Image.open(io.BytesIO(data)); image.load()
-        return ImageOps.exif_transpose(image).convert("RGB")
+        # Amazon can expose the image URL before the image variant is fully ready.
+        # A short grace period avoids grabbing a transient loading/placeholder response.
+        time.sleep(IMAGE_READY_DELAY_SECONDS)
+        for attempt in range(IMAGE_DOWNLOAD_ATTEMPTS):
+            try:
+                response = client.get(
+                    url,
+                    timeout=(8, 25),
+                    stream=True,
+                    headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"},
+                )
+                response.raise_for_status()
+                content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
+                if not content_type.startswith("image/"):
+                    raise ValueError("Amazon image response is not an image")
+                data = bytearray()
+                for chunk in response.iter_content(64 * 1024):
+                    if not chunk:
+                        continue
+                    data.extend(chunk)
+                    if len(data) > MAX_IMAGE_BYTES:
+                        raise ValueError("Product image exceeds the size limit")
+                # verify() catches truncated/corrupt image data before card creation.
+                with Image.open(io.BytesIO(data)) as probe:
+                    probe.verify()
+                with Image.open(io.BytesIO(data)) as image:
+                    image.load()
+                    if min(image.size) < MIN_PRODUCT_IMAGE_DIMENSION:
+                        raise ValueError("Amazon returned a temporary low-resolution image")
+                    return ImageOps.exif_transpose(image).convert("RGB")
+            except (requests.RequestException, OSError, ValueError) as exc:
+                last_error = exc
+                if attempt + 1 >= IMAGE_DOWNLOAD_ATTEMPTS:
+                    break
+                time.sleep(IMAGE_RETRY_DELAY_SECONDS * (attempt + 1))
+        raise RuntimeError(
+            f"Amazon product image was not ready after {IMAGE_DOWNLOAD_ATTEMPTS} attempts"
+        ) from last_error
     finally:
-        if owns_session: client.close()
+        if owns_session:
+            client.close()
 def _shape(text: str) -> str:
     # FIX: Pillow with libraqm already does Arabic shaping + bidi.
     # Old code did arabic_reshaper + get_display AND Pillow did it again -> double-shaped = mirrored text.
