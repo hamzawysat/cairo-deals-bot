@@ -56,6 +56,25 @@ def cached_ocr_text(cache: dict, message_id: int):
     """Return cached OCR text, including an intentionally cached empty result."""
     return cache.get(str(message_id))
 
+
+def filter_pending_candidates(pending: list[dict], state: dict) -> list[dict]:
+    """Deduplicate queued ASINs but retain Telegram-success/ Facebook-pending retries."""
+    published_asins = telegram_published_asins(state)
+    kept = []
+    seen_asins = set()
+    statuses = state.get("platform_status", {})
+    for candidate in pending:
+        if not isinstance(candidate, dict):
+            continue
+        asin = str(candidate.get("asin") or "").strip().upper()
+        status = statuses.get(str(candidate.get("source_message_id", "")), {})
+        facebook_retry = bool(status.get("telegram") and not status.get("facebook"))
+        if not asin or asin in seen_asins or (asin in published_asins and not facebook_retry):
+            continue
+        kept.append(candidate)
+        seen_asins.add(asin)
+    return kept
+
 def merge_preview_state(
     prior_state: dict,
     *,
@@ -95,16 +114,12 @@ async def run() -> bool:
     ocr_seconds = 0.0
     link_resolution_seconds = 0.0
     already_published_asins = telegram_published_asins(prior_state)
-    pending_candidates=[]
-    pending_seen_asins=set()
-    for old_candidate in prior_state.get("pending_candidates", []):
-        if not isinstance(old_candidate, dict):
-            continue
-        old_asin=str(old_candidate.get("asin") or "").strip().upper()
-        if not old_asin or old_asin in already_published_asins or old_asin in pending_seen_asins:
-            continue
-        pending_candidates.append(old_candidate)
-        pending_seen_asins.add(old_asin)
+    pending_candidates = filter_pending_candidates(
+        prior_state.get("pending_candidates", []), prior_state
+    )
+    pending_seen_asins = {
+        str(item.get("asin") or "").strip().upper() for item in pending_candidates
+    }
     pending_message_ids={int(i.get("source_message_id",0)) for i in pending_candidates if isinstance(i,dict)}
     pending_keys={str(i.get("source_product_key", i.get("source_message_id"))) for i in pending_candidates if isinstance(i,dict)}
     last_seen_message_id=int(prior_state.get("last_seen_message_id",0) or 0)
