@@ -213,12 +213,12 @@ def test_saved_telegram_message_must_match_offer_name_and_affiliate_url():
     assert _telegram_message_matches(partial_match, candidate) is False
 
 
-def test_facebook_cadence_is_ten_minutes_and_waiting_offer_is_not_removed():
+def test_facebook_cadence_is_one_hour_and_waiting_offer_is_not_removed():
     from pathlib import Path
     content = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
 
-    assert "FACEBOOK_INTERVAL_SECONDS = 10 * 60" in content
-    assert "ten-minute interval has not elapsed; offer remains queued for Facebook" in content
+    assert "FACEBOOK_INTERVAL_SECONDS = 60 * 60" in content
+    assert "one-hour interval has not elapsed; offer remains queued for Facebook" in content
     assert "less than 2 hours since last Facebook post" not in content
 
 
@@ -235,11 +235,11 @@ def test_live_amazon_price_is_mandatory_and_source_price_is_never_used():
     assert 'live.get("price") or candidate.get("advertised_price")' not in manual
 
 
-def test_facebook_cadence_is_ten_minutes_in_automatic_and_manual_publishers():
+def test_facebook_cadence_is_one_hour_in_automatic_and_manual_publishers():
     from pathlib import Path
     automatic = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
     manual = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
 
     assert "FACEBOOK_INTERVAL_SECONDS = 10 * 60" in automatic
-    assert "ten-minute interval has not elapsed; offer remains queued for Facebook" in automatic
-    assert "time.time() - last_facebook < 10 * 60" in manual
+    assert "one-hour interval has not elapsed; offer remains queued for Facebook" in automatic
+    assert "time.time() - last_facebook < 60 * 60" in manual
