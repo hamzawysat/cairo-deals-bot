@@ -101,7 +101,10 @@ async def run() -> bool:
         if not isinstance(old_candidate, dict):
             continue
         old_asin=str(old_candidate.get("asin") or "").strip().upper()
-        if not old_asin or old_asin in already_published_asins or old_asin in pending_seen_asins:
+        old_status = prior_state.get("platform_status", {}).get(str(old_candidate.get("source_message_id", "")), {})
+        # Keep a Telegram-confirmed offer queued only when its Facebook delivery is still pending.
+        facebook_retry = bool(old_status.get("telegram") and not old_status.get("facebook"))
+        if not old_asin or (old_asin in already_published_asins and not facebook_retry) or old_asin in pending_seen_asins:
             continue
         pending_candidates.append(old_candidate)
         pending_seen_asins.add(old_asin)
