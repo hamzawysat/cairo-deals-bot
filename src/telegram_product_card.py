@@ -30,24 +30,43 @@ class _ImageParser(HTMLParser):
         self._inside_price = False
         self._price_depth = 0
         self._price_parts = []
+        self._tag_stack = []
+        self._buybox_depth = 0
+        self._buybox_parts = []
+        self._buybox_source = None
+        self.meta_price = None
+        self.generic_price = None
+        self.price_source = None
+
+    _BUYBOX_IDS = {
+        "corePrice_feature_div", "corePriceDisplay_desktop_feature_div",
+        "apex_desktop", "corePrice_desktop", "price",
+    }
 
     def handle_starttag(self, tag, attrs):
         values = {key.lower(): value for key, value in attrs if key}
         classes = set((values.get("class") or "").split())
-        if tag.lower() == "meta":
+        tag = tag.lower()
+        is_buybox = values.get("id") in self._BUYBOX_IDS or (
+            tag in {"div", "span"} and "apexPriceToPay" in classes
+        )
+        if is_buybox:
+            self._buybox_depth += 1
+            self._buybox_source = values.get("id") or "apexPriceToPay"
+        self._tag_stack.append((tag, is_buybox))
+        if tag == "meta":
             key = (values.get("property") or values.get("name") or "").lower()
             if key in {"og:image", "twitter:image"}:
                 self.image_url = values.get("content") or self.image_url
             elif key in {"og:title", "twitter:title"}:
                 self.title = values.get("content") or self.title
             elif key in {"product:price:amount", "og:price:amount", "price"}:
-                self.price = values.get("content") or self.price
-        elif tag.lower() == "span" and values.get("id") == "productTitle":
+                self.meta_price = values.get("content") or self.meta_price
+                self.price = self.meta_price
+        elif tag == "span" and values.get("id") == "productTitle":
             self._inside_product_title = True
-        elif tag.lower() in {"div", "span"} and "a-price" in classes:
+        elif tag in {"div", "span"} and "a-price" in classes:
             self._inside_price = True
-            self._price_depth += 1
-        elif tag.lower() == "span" and "a-offscreen" in classes and self._inside_price:
             self._price_depth += 1
         elif tag.lower() == "img":
             if values.get("data-old-hires"):
@@ -66,9 +85,21 @@ class _ImageParser(HTMLParser):
             self._title_parts.append(data)
         if self._inside_price and data.strip():
             self._price_parts.append(data.strip())
+        if self._buybox_depth and data.strip():
+            self._buybox_parts.append(data.strip())
 
     def handle_endtag(self, tag):
-        if tag.lower() == "span" and self._inside_product_title:
+        tag = tag.lower()
+        # Close the matching open element and any malformed nested elements above it.
+        closed = []
+        for index in range(len(self._tag_stack) - 1, -1, -1):
+            if self._tag_stack[index][0] == tag:
+                closed = self._tag_stack[index:]
+                self._tag_stack = self._tag_stack[:index]
+                break
+        if closed:
+            self._buybox_depth = max(0, self._buybox_depth - sum(1 for _, marker in closed if marker))
+        if tag == "span" and self._inside_product_title:
             self._inside_product_title = False
             parsed = " ".join(" ".join(self._title_parts).split())
             if parsed:
@@ -78,8 +109,15 @@ class _ImageParser(HTMLParser):
             if self._price_depth <= 0:
                 self._inside_price = False
                 parsed_price = " ".join(" ".join(self._price_parts).split())
-                if parsed_price and not self.price:
-                    self.price = parsed_price
+                if parsed_price:
+                    self.generic_price = parsed_price
+                    if not self.price:
+                        self.price = parsed_price
+        if tag in {"div", "span"} and self._buybox_depth == 0 and self._buybox_parts:
+            parsed_buybox = " ".join(" ".join(self._buybox_parts).split())
+            if parsed_buybox:
+                self.price = parsed_buybox
+                self.price_source = self._buybox_source or "buybox"
 
 def _valid_image_url(url: str | None) -> bool:
     try:
@@ -114,6 +152,12 @@ def find_amazon_product_details(asin: str, *, session=None) -> dict:
             if match:
                 amount = float(match.group(0))
                 out["price"] = f"{amount:.2f} جنيه".replace(".00 جنيه", " جنيه")
+                source = parser.price_source or ("meta" if parser.meta_price else "generic-a-price")
+                print(f"AMAZON_PRICE_SELECTED source={source} amount={amount:.2f} EGP")
+            else:
+                print("AMAZON_PRICE_UNPARSEABLE; product will be deferred")
+        else:
+            print("AMAZON_PRICE_MISSING; product will be deferred")
         return out
     finally:
         if owns_session: client.close()
