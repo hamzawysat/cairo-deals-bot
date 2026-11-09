@@ -151,11 +151,11 @@ def test_normal_publish_keeps_all_eligible_offers():
     assert _target_eligible_offers([first, second], "") == [first, second]
 
 
-def test_facebook_interval_is_two_minutes_and_telegram_interval_stays_two_minutes():
+def test_facebook_interval_is_one_hour_and_telegram_interval_stays_two_minutes():
     from pathlib import Path
     import json
 
-    assert main_module.FACEBOOK_INTERVAL_SECONDS == 2 * 60
+    assert main_module.FACEBOOK_INTERVAL_SECONDS == 60 * 60
     settings = json.loads(Path("config/settings.json").read_text(encoding="utf-8"))
     assert settings["interval_minutes"] == 2
     assert 'interval = max(2, int(settings.get("interval_minutes", 120)))' in Path("src/main.py").read_text(encoding="utf-8")
