@@ -9,6 +9,7 @@ from src.telegram_product_card import (
     _valid_image_url,
     create_telegram_product_card,
     find_amazon_product_image,
+    _load_product_image,
 )
 
 
@@ -95,3 +96,34 @@ def test_amazon_page_parser_reads_product_title_span_and_dynamic_image():
     )
     assert parser.title == "منتج أمازون تجريبي"
     assert parser.image_url == "https://m.media-amazon.com/images/I/item.jpg"
+
+
+
+def test_image_loader_waits_and_retries_until_complete_image(monkeypatch):
+    import io
+    import src.telegram_product_card as cards
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (640, 480), "white").save(buffer, format="PNG")
+    complete_image = buffer.getvalue()
+
+    def response(payload):
+        item = Mock()
+        item.headers = {"Content-Type": "image/png"}
+        item.raise_for_status = Mock()
+        item.iter_content.return_value = [payload]
+        return item
+
+    session = Mock()
+    session.get.side_effect = [response(b"partial-image"), response(complete_image)]
+    sleeps = []
+    monkeypatch.setattr(cards.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    image = _load_product_image(
+        "https://m.media-amazon.com/images/I/example.jpg",
+        session=session,
+    )
+
+    assert image.size == (640, 480)
+    assert session.get.call_count == 2
+    assert sleeps == [cards.IMAGE_READY_DELAY_SECONDS, cards.IMAGE_RETRY_DELAY_SECONDS]
