@@ -64,3 +64,27 @@ def test_image_ocr_downscales_oversized_images_to_1200px(tmp_path, monkeypatch):
     monkeypatch.setattr(preview.pytesseract, "image_to_string", fake_ocr)
     preview.image_ocr(str(image_path))
     assert seen_sizes == [(1200, 600)]
+
+
+def test_preview_state_preserves_facebook_interval_and_other_publisher_fields():
+    prior_state = {
+        "last_facebook_publish_at": 1794190000.5,
+        "platform_status": {"123": {"telegram": "456"}},
+        "published_message_ids": [123],
+        "publisher_extension": {"keep": True},
+    }
+
+    updated = preview.merge_preview_state(
+        prior_state,
+        last_seen_message_id=200,
+        pending_candidates=[{"source_message_id": 201}],
+        ocr_cache={"201": "cached OCR"},
+    )
+
+    assert updated["last_facebook_publish_at"] == 1794190000.5
+    assert updated["publisher_extension"] == {"keep": True}
+    assert updated["platform_status"] == {"123": {"telegram": "456"}}
+    assert updated["published_message_ids"] == [123]
+    assert updated["last_seen_message_id"] == 200
+    assert updated["pending_candidates"] == [{"source_message_id": 201}]
+    assert updated["ocr_cache"] == {"201": "cached OCR"}
