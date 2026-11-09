@@ -224,7 +224,7 @@ def run_once():
                 print(f"ALREADY_POSTED {target_offer_id}; duplicate protection kept")
                 return
 
-        interval = max(5, int(settings.get("interval_minutes", 120)))
+        interval = max(2, int(settings.get("interval_minutes", 120)))
         grace_seconds = max(0, int(settings.get("interval_grace_seconds", 60)))
         last = db.execute("SELECT MAX(posted_at) FROM rotation_posts").fetchone()[0]
         # An explicitly targeted manual publish may run immediately; normal scheduled

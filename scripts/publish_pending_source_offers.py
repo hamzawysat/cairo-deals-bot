@@ -54,7 +54,10 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     price = str(candidate.get("advertised_price") or "").strip()
     url = str(candidate.get("affiliate_url") or "").strip()
     if not name or not url:
-        return str(candidate.get("caption_preview") or "").strip()
+        fallback = str(candidate.get("caption_preview") or "").strip()
+        if fallback and PRICE_AVAILABILITY_NOTICE not in fallback:
+            return f"{fallback}\\n\\n{PRICE_AVAILABILITY_NOTICE}"
+        return fallback
 
     # Keep the exact supplied price text and affiliate URL; only presentation changes.
     price_text = price if "جنيه" in price else (f"{price} جنيه" if price else "")
