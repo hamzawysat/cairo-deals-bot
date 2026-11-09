@@ -125,7 +125,7 @@ async def publish_one() -> bool:
         if not affiliate_url:
             print("PUBLISH BLOCKED: affiliate purchase link is missing.")
             return False
-        caption = "\\n".join([
+        caption = "\n".join([
             f"🛍️ {product_name}",
             "",
             f"💰 السعر: {live_price_text}",
