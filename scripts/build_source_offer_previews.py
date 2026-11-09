@@ -55,6 +55,24 @@ def cached_ocr_text(cache: dict, message_id: int):
     """Return cached OCR text, including an intentionally cached empty result."""
     return cache.get(str(message_id))
 
+def merge_preview_state(
+    prior_state: dict,
+    *,
+    last_seen_message_id: int,
+    pending_candidates: list[dict],
+    ocr_cache: dict,
+) -> dict:
+    """Update preview-owned fields without dropping publisher-owned state."""
+    updated = dict(prior_state)
+    updated.update({
+        "last_seen_message_id": last_seen_message_id,
+        "published_message_ids": prior_state.get("published_message_ids", []),
+        "platform_status": prior_state.get("platform_status", {}),
+        "pending_candidates": pending_candidates,
+        "ocr_cache": ocr_cache,
+    })
+    return updated
+
 async def run() -> bool:
     raw_id=os.environ.get("TELEGRAM_API_ID",""); api_hash=os.environ.get("TELEGRAM_API_HASH",""); session=os.environ.get("TELEGRAM_SESSION","")
     if not raw_id.isdigit() or not api_hash or not session:
@@ -171,7 +189,16 @@ async def run() -> bool:
         for item in candidates: pending_by_key[str(item.get("source_product_key", item.get("source_message_id")))]=item
         pending_candidates=list(pending_by_key.values())
         output=Path("artifacts/source-offer-previews.json"); output.parent.mkdir(parents=True, exist_ok=True)
-        state_path.write_text(json.dumps({"last_seen_message_id":highest_seen_message_id,"published_message_ids":prior_state.get("published_message_ids",[]),"platform_status": prior_state.get("platform_status", {}),"pending_candidates":pending_candidates,"ocr_cache":ocr_cache,}, ensure_ascii=False, indent=2), encoding="utf-8")
+        updated_state = merge_preview_state(
+            prior_state,
+            last_seen_message_id=highest_seen_message_id,
+            pending_candidates=pending_candidates,
+            ocr_cache=ocr_cache,
+        )
+        state_path.write_text(
+            json.dumps(updated_state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         report={"source_channel":SOURCE_CHANNEL,"posts_scanned":len(seen_messages),"photos_ocr_attempted":photo_count,"candidate_count":len(candidates),"duplicate_candidates_skipped":duplicate_skipped,"rejected_counts":rejected,"rejections":rejection_details,"candidates":pending_candidates,"pending_candidate_count":len(pending_candidates),"publishing_performed":False,"destination_channels_touched":[],"image_reuse_policy":"source images are OCR evidence only and are not cleared for republication",}
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"PREVIEW BUILD PASSED: {len(seen_messages)} source posts scanned.")
