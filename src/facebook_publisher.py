@@ -2,10 +2,12 @@
 from __future__ import annotations
 import logging
 import os
+import time
 import requests
 
 GRAPH_API_VERSION = "v27.0"
 GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
+FACEBOOK_IMAGE_READY_DELAY_SECONDS = 3
 
 
 class FacebookPublishError(RuntimeError):
@@ -92,6 +94,8 @@ def send_facebook(page_access_token: str, text: str, photo_url: str | None = Non
     payload = {"access_token": page_access_token, "published": "true", "caption" if photo_url else "message": text}
     if photo_url:
         payload["url"] = photo_url
+        # Match the Telegram card image grace period: allow the source image to finish loading.
+        time.sleep(FACEBOOK_IMAGE_READY_DELAY_SECONDS)
     try:
         response = requests.post(endpoint, data=payload, timeout=timeout)
         response.raise_for_status()
