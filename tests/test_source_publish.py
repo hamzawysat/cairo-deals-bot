@@ -222,16 +222,18 @@ def test_facebook_cadence_is_ten_minutes_and_waiting_offer_is_not_removed():
 
 
 
-def test_live_amazon_price_is_mandatory_and_source_price_is_never_used():
+def test_source_post_price_is_used_and_disclaimer_is_in_both_publishers():
     from pathlib import Path
     automatic = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
     manual = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
 
-    assert 'or not _live.get("price")' in automatic
-    assert 'candidate["advertised_price"] = str(_live["price"]).strip()' in automatic
-    assert 'or not live.get("price")' in manual
-    assert 'product_price = str(live["price"]).strip()' in manual
-    assert 'live.get("price") or candidate.get("advertised_price")' not in manual
+    assert 'candidate["advertised_price"] = str(candidate.get("advertised_price") or "").strip()' in automatic
+    assert 'product_price = str(candidate.get("advertised_price") or "").strip()' in manual
+    assert '_live["price"]' not in automatic
+    assert 'live["price"]' not in manual
+    disclaimer = "قد يتغير السعر والتوافر لدى المعلن"
+    assert disclaimer in automatic
+    assert disclaimer in manual
 
 
 def test_facebook_cadence_is_ten_minutes_in_automatic_and_manual_publishers():
