@@ -34,9 +34,19 @@ def validate_approved_image_record(record: dict | None) -> str | None:
     return parsed.geturl()
 
 
+def telegram_published_asins(state: dict) -> set[str]:
+    """Return ASINs already confirmed on Telegram, including legacy delivery records."""
+    published = {str(value).strip().upper() for value in state.get("published_asins", []) if str(value).strip()}
+    for item in state.get("platform_status", {}).values():
+        if isinstance(item, dict) and item.get("telegram") and item.get("asin"):
+            published.add(str(item["asin"]).strip().upper())
+    return published
+
+
 def select_unpublished_candidate(report: dict, state: dict) -> dict | None:
-    """Select a candidate unless this exact source message was fully published."""
+    """Select only offers not already delivered to Telegram, even from another source post."""
     published_ids = {int(value) for value in state.get("published_message_ids", [])}
+    published_asins = telegram_published_asins(state)
     for candidate in report.get("candidates", []):
         try:
             message_id = int(candidate["source_message_id"])
@@ -44,7 +54,7 @@ def select_unpublished_candidate(report: dict, state: dict) -> dict | None:
         except (KeyError, TypeError, ValueError):
             continue
         status = state.get("platform_status", {}).get(str(message_id), {})
-        if message_id in published_ids or (status.get("facebook") and status.get("telegram")):
+        if message_id in published_ids or asin in published_asins or (status.get("facebook") and status.get("telegram")):
             continue
         if candidate.get("publishing_performed") is not False:
             continue
@@ -75,6 +85,10 @@ def mark_platform_published(state: dict, candidate: dict, platform: str, remote_
     item["asin"] = str(candidate["asin"]).upper()
     statuses[key] = item
     updated["platform_status"] = statuses
+    if platform == "telegram":
+        published_asins = {str(value).strip().upper() for value in updated.get("published_asins", []) if str(value).strip()}
+        published_asins.add(str(candidate["asin"]).strip().upper())
+        updated["published_asins"] = sorted(published_asins)
     if item.get("telegram") and item.get("facebook"):
         message_ids = {int(value) for value in updated.get("published_message_ids", [])}
         message_ids.add(int(candidate["source_message_id"]))
