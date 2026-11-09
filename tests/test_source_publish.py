@@ -99,7 +99,7 @@ def test_platform_delivery_state_allows_safe_partial_retry():
     assert state["published_message_ids"] == [22]
 
 
-def test_same_product_from_new_source_message_is_allowed():
+def test_same_product_from_new_source_message_is_blocked_after_telegram_delivery():
     candidate = {
         "source_message_id": 23,
         "asin": "B0ABC12345",
@@ -111,7 +111,7 @@ def test_same_product_from_new_source_message_is_allowed():
         {"candidates": [candidate]},
         {"published_message_ids": [22], "published_asins": ["B0ABC12345"]},
     )
-    assert selected["source_message_id"] == 23
+    assert selected is None
 
 
 def test_preview_state_preserves_partial_delivery_records():
@@ -250,3 +250,19 @@ def test_manual_facebook_wait_does_not_block_telegram_delivery():
     manual = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
     assert "FACEBOOK SKIPPED: one-hour publishing interval has not elapsed; Telegram will continue." in manual
     assert "return False" not in manual.split("FACEBOOK SKIPPED: one-hour publishing interval has not elapsed; Telegram will continue.", 1)[1].split("platform_status = dict", 1)[0]
+
+
+def test_telegram_confirmation_persists_asin_for_cross_message_deduplication():
+    candidate = {"source_message_id": 31, "asin": "b0abc12345"}
+    state = mark_platform_published({}, candidate, "telegram", "telegram-999")
+    assert state["published_asins"] == ["B0ABC12345"]
+    other_message = dict(candidate, source_message_id=32)
+    assert select_unpublished_candidate(
+        {"candidates": [other_message]}, state
+    ) is None
+
+
+def test_legacy_telegram_status_migrates_to_published_asin_set():
+    from src.source_publish import telegram_published_asins
+    state = {"platform_status": {"22": {"asin": "b0abc12345", "telegram": "telegram-123"}}}
+    assert telegram_published_asins(state) == {"B0ABC12345"}
