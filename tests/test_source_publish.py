@@ -266,3 +266,15 @@ def test_legacy_telegram_status_migrates_to_published_asin_set():
     from src.source_publish import telegram_published_asins
     state = {"platform_status": {"22": {"asin": "b0abc12345", "telegram": "telegram-123"}}}
     assert telegram_published_asins(state) == {"B0ABC12345"}
+
+
+def test_preview_keeps_telegram_done_facebook_pending_offer():
+    from scripts.build_source_offer_previews import merge_preview_state
+    from src.source_publish import mark_platform_published
+    candidate = {"source_message_id": 44, "asin": "B0ABC12345"}
+    state = mark_platform_published({}, candidate, "telegram", "telegram-44")
+    merged = merge_preview_state(
+        state, last_seen_message_id=50, pending_candidates=[candidate], ocr_cache={}
+    )
+    assert merged["published_asins"] == ["B0ABC12345"]
+    assert merged["pending_candidates"] == [candidate]
