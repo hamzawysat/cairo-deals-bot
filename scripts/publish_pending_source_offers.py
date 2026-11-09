@@ -60,7 +60,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     lines = [f"🛍️ {name}", ""]
     if price_text:
         lines.extend([f"💰 السعر: {price_text}", ""])
-    lines.extend([f"🔗 لينك العرض والشراء: {url}", "", "تابع عروض Cairo Deals اليومية:"])
+    lines.extend(["⚠️ قد يتغير السعر والتوافر لدى المعلن.", "", f"🔗 لينك العرض والشراء: {url}", "", "تابع عروض Cairo Deals اليومية:"])
     if for_telegram:
         lines.extend([
             f"📲 تيليجرام: [اضغط هنا]({TELEGRAM_LINK})",
@@ -171,16 +171,22 @@ async def publish_pending() -> bool:
                     _live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
                 except Exception:
                     _live = {}
-                if not _live.get("title") or not _live.get("image_url") or not _live.get("price"):
-                    missing = [field for field in ("title", "image_url", "price") if not _live.get(field)]
+                if not _live.get("title") or not _live.get("image_url"):
+                    missing = [field for field in ("title", "image_url") if not _live.get(field)]
                     print(
                         f"AMAZON DATA DEFERRED source message {candidate.get('source_message_id')}: "
-                        f"missing live {', '.join(missing)}; no source-price fallback; queued for retry."
+                        f"missing live {', '.join(missing)}; queued for retry."
                     )
                     deferred_candidates.append(candidate)
                     continue
                 candidate = dict(candidate)
-                candidate["advertised_price"] = str(_live["price"]).strip()
+                # Restore the price captured from the source post; Amazon price scraping
+                # is not used for the advertised amount.
+                candidate["advertised_price"] = str(candidate.get("advertised_price") or "").strip()
+                if not candidate["advertised_price"]:
+                    print(f"SOURCE PRICE MISSING for source message {message_id}; queued for retry.")
+                    deferred_candidates.append(candidate)
+                    continue
                 candidate["product_name_source"] = _choose_product_title(candidate.get("product_name_source"), _live["title"])
                 candidate["_live_image_url"] = _live["image_url"]
                 # FIX: rebuild caption at publish time instead of using old stored caption_preview
