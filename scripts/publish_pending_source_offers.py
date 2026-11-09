@@ -74,7 +74,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     return "\n".join(lines).strip()
 
 
-FACEBOOK_INTERVAL_SECONDS = 10 * 60  # Facebook is attempted at most once every ten minutes
+FACEBOOK_INTERVAL_SECONDS = 60 * 60  # Facebook is attempted at most once every hour
 
 
 def _facebook_due(state: dict) -> bool:
@@ -245,7 +245,7 @@ async def publish_pending() -> bool:
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             if not platform_status.get("facebook"):
                 if not _facebook_due(state):
-                    print(f"FACEBOOK SKIPPED for source {message_id}: ten-minute interval has not elapsed; offer remains queued for Facebook.")
+                    print(f"FACEBOOK SKIPPED for source {message_id}: one-hour interval has not elapsed; offer remains queued for Facebook.")
                     # Keep the candidate pending. Telegram's independently verified
                     # status prevents duplicates; a later two-minute run retries Facebook
                     # once the ten-minute interval has elapsed.
