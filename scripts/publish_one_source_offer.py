@@ -25,6 +25,8 @@ SETTINGS_PATH = Path("config/settings.json")
 SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@OffersEgyptofficial")
 TARGET_CHANNEL = os.environ.get("TARGET_TELEGRAM_CHANNEL", "@cairo_deals")
 TRACKING_ID = "cairodeals-21"
+PRICE_AVAILABILITY_NOTICE = "⚠️ قد يتغير السعر أو التوافر لدى المعلن."
+FACEBOOK_INTERVAL_SECONDS = 60 * 60
 
 
 def load_json(path: Path) -> dict:
@@ -110,6 +112,8 @@ async def publish_one() -> bool:
         message_key = str(candidate["source_message_id"])
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         caption = str(candidate.get("caption_preview") or "").strip()
+        if caption and PRICE_AVAILABILITY_NOTICE not in caption:
+            caption = f"{caption}\n\n{PRICE_AVAILABILITY_NOTICE}"
         live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
         if not live.get("title") or not live.get("image_url"):
             print("PUBLISH BLOCKED: matching Amazon product image/title could not be verified.")
@@ -130,8 +134,8 @@ async def publish_one() -> bool:
                 last_facebook = float(last_facebook)
             except (TypeError, ValueError):
                 last_facebook = 0
-            if last_facebook and time.time() - last_facebook < 2 * 60:
-                print("PUBLISH BLOCKED: Facebook's two-hour publishing interval has not elapsed.")
+            if last_facebook and time.time() - last_facebook < FACEBOOK_INTERVAL_SECONDS:
+                print("PUBLISH BLOCKED: Facebook's one-hour publishing interval has not elapsed.")
                 return False
             try:
                 facebook_id = await asyncio.to_thread(

@@ -60,7 +60,7 @@ but Telegram fails (or vice versa), the next manual retry skips the destination
 already confirmed and attempts only the unfinished one. A successful full
 delivery marks the source message and ASIN as published.
 
-The scheduled source-monitor workflow can automatically publish queued offers. Telegram delivery retains its existing cadence; Facebook is attempted only when two hours have elapsed since the last confirmed Facebook post. The external Cron Console trigger remains unchanged.
+The scheduled source-monitor workflow can automatically publish queued offers. Telegram delivery retains its existing cadence; Facebook is attempted only when one hour has elapsed since the last confirmed Facebook post. The external Cron Console trigger remains unchanged.
 
 ## State and operational limits
 

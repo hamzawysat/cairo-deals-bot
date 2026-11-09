@@ -8,6 +8,7 @@ from .facebook_publisher import send_facebook, FacebookPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.getenv("BOT_STATE_DB", ROOT / "data" / "state.sqlite3"))
+FACEBOOK_INTERVAL_SECONDS = 60 * 60
 
 
 def load_json(path):
@@ -118,6 +119,7 @@ def message_for(offer, url):
         lines.append(price_text)
 
     lines.append(f"👇 {url}")
+    lines.append("⚠️ قد يتغير السعر أو التوافر لدى المعلن.")
     return "\n".join(lines)
 
 
@@ -145,7 +147,7 @@ def facebook_message_for(offer, url):
         lines.append(f"🏷️ السعر السابق: {original_price} جنيه")
     if price is not None or original_price is not None:
         lines.append("")
-    lines.extend(["🛍️ شوف التفاصيل واطلب من هنا:", url, ""])
+    lines.extend(["🛍️ شوف التفاصيل واطلب من هنا:", url, "", "⚠️ قد يتغير السعر أو التوافر لدى المعلن.", ""])
     hashtags = offer.get("hashtags") or ["عروض_القاهرة", "تسوق_أونلاين"]
     clean_tags = []
     for tag in hashtags:
@@ -301,11 +303,11 @@ def run_once():
                 if last_facebook:
                     try:
                         last_dt = datetime.strptime(last_facebook[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-                        facebook_due = (datetime.now(timezone.utc) - last_dt).total_seconds() >= 2 * 60
+                        facebook_due = (datetime.now(timezone.utc) - last_dt).total_seconds() >= FACEBOOK_INTERVAL_SECONDS
                     except (TypeError, ValueError):
                         facebook_due = True
                 if not facebook_due:
-                    print(f"FACEBOOK_SKIPPED {offer['id']}: two-hour interval has not elapsed")
+                    print(f"FACEBOOK_SKIPPED {offer['id']}: one-hour interval has not elapsed")
                 else:
                     try:
                         facebook_post_id = send_facebook(

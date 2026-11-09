@@ -19,7 +19,7 @@ def test_jumia_needs_verified_affiliate_url():
 
 def test_message_does_not_invent_price():
     text = message_for({"title":"منتج","price_egp":None}, "https://example.com")
-    assert "السعر" not in text
+    assert "💰" not in text
     assert "https://example.com" in text
 
 
@@ -35,7 +35,8 @@ def test_message_uses_exact_three_line_compact_template_and_short_link():
     assert text == (
         "🍓 مربى فراولة 800 جم + مربى تين 800 جم من ميرو\n"
         "💰 105 جنيه بدل 118 جنيه - خصم 11%\n"
-        "👇 https://link.amazon/B0iUJDVt8"
+        "👇 https://link.amazon/B0iUJDVt8\n"
+        "⚠️ قد يتغير السعر أو التوافر لدى المعلن."
     )
     assert "%D8" not in text
     assert "pd_rd_w" not in text
@@ -54,12 +55,13 @@ def test_message_keeps_original_affiliate_url_and_omits_long_copy():
         "🛍️ سلك توصيل",
         "💰 90 جنيه",
         "👇 https://amzn.to/4jUDok9",
+        "⚠️ قد يتغير السعر أو التوافر لدى المعلن.",
     ]
 
 
 def test_message_does_not_invent_price():
     text = message_for({"title": "منتج", "price_egp": None}, "https://example.com")
-    assert "السعر" not in text
+    assert "💰" not in text
     assert text.endswith("https://example.com")
 
 
@@ -78,6 +80,7 @@ def test_facebook_copy_remains_unchanged_by_telegram_compact_template():
     assert "وصف فيسبوك القديم" in text
     assert "⭐ أبرز الاستخدامات والمميزات:" in text
     assert "#إعلان #تجربة" in text
+    assert "⚠️ قد يتغير السعر أو التوافر لدى المعلن." in text
 
 
 def test_offer_score_rewards_complete_verified_data():
@@ -145,3 +148,12 @@ def test_normal_publish_keeps_all_eligible_offers():
     first = ({"id": "first"}, "https://example.com/1")
     second = ({"id": "second"}, "https://example.com/2")
     assert _target_eligible_offers([first, second], "") == [first, second]
+
+
+def test_facebook_interval_is_one_hour_and_telegram_interval_stays_two_minutes():
+    from pathlib import Path
+    import json
+
+    assert main_module.FACEBOOK_INTERVAL_SECONDS == 60 * 60
+    settings = json.loads(Path("config/settings.json").read_text(encoding="utf-8"))
+    assert settings["interval_minutes"] == 2
