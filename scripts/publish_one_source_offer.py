@@ -26,7 +26,7 @@ SOURCE_CHANNEL = os.environ.get("SOURCE_TELEGRAM_CHANNEL", "@OffersEgyptofficial
 TARGET_CHANNEL = os.environ.get("TARGET_TELEGRAM_CHANNEL", "@cairo_deals")
 TRACKING_ID = "cairodeals-21"
 PRICE_AVAILABILITY_NOTICE = "⚠️ قد يتغير السعر أو التوافر لدى المعلن."
-FACEBOOK_INTERVAL_SECONDS = 2 * 60
+FACEBOOK_INTERVAL_SECONDS = 60 * 60
 
 
 def load_json(path: Path) -> dict:
@@ -135,7 +135,7 @@ async def publish_one() -> bool:
             except (TypeError, ValueError):
                 last_facebook = 0
             if last_facebook and time.time() - last_facebook < FACEBOOK_INTERVAL_SECONDS:
-                print("FACEBOOK SKIPPED: two-minute publishing interval has not elapsed; Telegram will continue.")
+                print("FACEBOOK SKIPPED: one-hour publishing interval has not elapsed; Telegram will continue.")
             else:
                 try:
                     facebook_id = await asyncio.to_thread(

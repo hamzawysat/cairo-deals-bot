@@ -8,7 +8,7 @@ from .facebook_publisher import send_facebook, FacebookPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.getenv("BOT_STATE_DB", ROOT / "data" / "state.sqlite3"))
-FACEBOOK_INTERVAL_SECONDS = 2 * 60
+FACEBOOK_INTERVAL_SECONDS = 60 * 60
 
 
 def load_json(path):
