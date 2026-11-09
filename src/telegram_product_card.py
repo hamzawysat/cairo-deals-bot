@@ -110,7 +110,7 @@ def find_amazon_product_details(asin: str, *, session=None) -> dict:
             raw_price = parser.price.strip()
             normalized = raw_price.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))
             normalized = normalized.replace("٫", ".").replace("٬", "").replace(",", "")
-            match = re.search(r"\\d+(?:\\.\\d{1,2})?", normalized)
+            match = re.search(r"\d+(?:\.\d{1,2})?", normalized)
             if match:
                 amount = float(match.group(0))
                 out["price"] = f"{amount:.2f} جنيه".replace(".00 جنيه", " جنيه")
