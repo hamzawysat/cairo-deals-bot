@@ -82,6 +82,9 @@ def test_caption_changes_only_presentation_and_keeps_original_links():
     assert "\n\n" in telegram
     assert candidate["affiliate_url"] in telegram
     assert candidate["affiliate_url"] in facebook
+    disclaimer = "قد يتغير السعر أو التوافر لدى المعلن"
+    assert disclaimer in telegram
+    assert disclaimer in facebook
     assert "https://t.me/cairo_deals" in telegram
     assert "https://www.facebook.com/share/19hQqVpCuG/" in facebook
 
