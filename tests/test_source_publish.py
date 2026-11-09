@@ -212,12 +212,12 @@ def test_saved_telegram_message_must_match_offer_name_and_affiliate_url():
     assert _telegram_message_matches(partial_match, candidate) is False
 
 
-def test_facebook_cadence_is_one_hour_and_waiting_offer_is_not_removed():
+def test_facebook_cadence_is_two_minutes_and_waiting_offer_is_not_removed():
     from pathlib import Path
     content = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
 
-    assert "FACEBOOK_INTERVAL_SECONDS = 60 * 60" in content
-    assert "one-hour interval has not elapsed; offer remains queued for Facebook" in content
+    assert "FACEBOOK_INTERVAL_SECONDS = 2 * 60" in content
+    assert "two-minute interval has not elapsed; offer remains queued for Facebook" in content
     assert "less than 2 hours since last Facebook post" not in content
 
 
@@ -234,14 +234,14 @@ def test_source_offer_caption_adds_price_and_availability_notice_to_both_channel
     assert notice in _rebuild_caption(candidate, for_telegram=False)
 
 
-def test_manual_source_publisher_keeps_telegram_two_minute_setting_and_facebook_hourly():
+def test_manual_source_publisher_keeps_telegram_two_minute_setting_and_facebook_two_minute_test():
     from pathlib import Path
     import json
 
     settings = json.loads(Path("config/settings.json").read_text(encoding="utf-8"))
     manual = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
     assert settings["interval_minutes"] == 2
-    assert "FACEBOOK_INTERVAL_SECONDS = 60 * 60" in manual
+    assert "FACEBOOK_INTERVAL_SECONDS = 2 * 60" in manual
     assert "PRICE_AVAILABILITY_NOTICE" in manual
 
 
