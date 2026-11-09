@@ -132,6 +132,8 @@ async def publish_one() -> bool:
             "",
             f"🔗 لينك العرض والشراء: {affiliate_url}",
             "",
+            "⚠️ قد يتغير السعر أو التوافر لدى المعلن.",
+            "",
             "تابع عروض Cairo Deals اليومية:",
             "📲 تيليجرام: https://t.me/cairo_deals",
             "📘 فيسبوك: https://www.facebook.com/share/19hQqVpCuG/",
