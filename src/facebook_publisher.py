@@ -3,11 +3,17 @@ from __future__ import annotations
 import logging
 import os
 import time
+from io import BytesIO
+
 import requests
+from PIL import Image, UnidentifiedImageError
 
 GRAPH_API_VERSION = "v27.0"
 GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 FACEBOOK_IMAGE_READY_DELAY_SECONDS = 3
+FACEBOOK_IMAGE_READY_MAX_ATTEMPTS = 5
+FACEBOOK_IMAGE_READY_RETRY_SECONDS = 2
+FACEBOOK_IMAGE_MAX_BYTES = 20 * 1024 * 1024
 
 
 class FacebookPublishError(RuntimeError):
@@ -82,6 +88,36 @@ def _verify_post_visibility(post_id: str, page_access_token: str, timeout: int =
     return None
 
 
+def _wait_for_valid_image(photo_url: str, timeout: int = 20) -> None:
+    """Wait, then confirm the remote URL serves a complete, decodable image."""
+    time.sleep(FACEBOOK_IMAGE_READY_DELAY_SECONDS)
+    last_problem = "image was not ready"
+    for attempt in range(FACEBOOK_IMAGE_READY_MAX_ATTEMPTS):
+        try:
+            response = requests.get(photo_url, timeout=timeout)
+            response.raise_for_status()
+            content_type = str(response.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
+            if not content_type.startswith("image/"):
+                raise ValueError(f"unexpected content type: {content_type or 'missing'}")
+            image_bytes = response.content
+            if not image_bytes or len(image_bytes) > FACEBOOK_IMAGE_MAX_BYTES:
+                raise ValueError("image is empty or exceeds the 20 MB limit")
+            with Image.open(BytesIO(image_bytes)) as image:
+                image.verify()
+            with Image.open(BytesIO(image_bytes)) as image:
+                if image.width < 2 or image.height < 2:
+                    raise ValueError("image dimensions are too small")
+            return
+        except (requests.RequestException, OSError, ValueError, UnidentifiedImageError) as exc:
+            last_problem = str(exc)[:200] or type(exc).__name__
+            if attempt + 1 < FACEBOOK_IMAGE_READY_MAX_ATTEMPTS:
+                time.sleep(FACEBOOK_IMAGE_READY_RETRY_SECONDS)
+    raise FacebookPublishError(
+        f"Facebook image source did not become a valid image after "
+        f"{FACEBOOK_IMAGE_READY_MAX_ATTEMPTS} checks ({last_problem})"
+    )
+
+
 def send_facebook(page_access_token: str, text: str, photo_url: str | None = None, timeout: int = 30) -> str:
     if not page_access_token:
         raise FacebookPublishError("Meta Page access token is missing")
@@ -94,8 +130,8 @@ def send_facebook(page_access_token: str, text: str, photo_url: str | None = Non
     payload = {"access_token": page_access_token, "published": "true", "caption" if photo_url else "message": text}
     if photo_url:
         payload["url"] = photo_url
-        # Match the Telegram card image grace period: allow the source image to finish loading.
-        time.sleep(FACEBOOK_IMAGE_READY_DELAY_SECONDS)
+        # The bot waits, downloads, and decodes the image before Meta receives its URL.
+        _wait_for_valid_image(photo_url, timeout=min(timeout, 20))
     try:
         response = requests.post(endpoint, data=payload, timeout=timeout)
         response.raise_for_status()
