@@ -212,12 +212,12 @@ def test_saved_telegram_message_must_match_offer_name_and_affiliate_url():
     assert _telegram_message_matches(partial_match, candidate) is False
 
 
-def test_facebook_cadence_is_five_minutes_and_waiting_offer_is_not_removed():
+def test_facebook_cadence_is_ten_minutes_and_waiting_offer_is_not_removed():
     from pathlib import Path
     content = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
 
-    assert "FACEBOOK_INTERVAL_SECONDS = 5 * 60" in content
-    assert "five-minute interval has not elapsed; offer remains queued for Facebook" in content
+    assert "FACEBOOK_INTERVAL_SECONDS = 10 * 60" in content
+    assert "ten-minute interval has not elapsed; offer remains queued for Facebook" in content
     assert "less than 2 hours since last Facebook post" not in content
 
 
