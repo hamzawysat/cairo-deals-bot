@@ -148,8 +148,8 @@ async def publish_one() -> bool:
                 last_facebook = float(last_facebook)
             except (TypeError, ValueError):
                 last_facebook = 0
-            if last_facebook and time.time() - last_facebook < 10 * 60:
-                print("PUBLISH BLOCKED: Facebook's ten-minute publishing interval has not elapsed.")
+            if last_facebook and time.time() - last_facebook < 60 * 60:
+                print("PUBLISH BLOCKED: Facebook's one-hour publishing interval has not elapsed.")
                 return False
             try:
                 facebook_id = await asyncio.to_thread(
