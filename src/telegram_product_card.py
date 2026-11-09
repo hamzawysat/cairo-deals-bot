@@ -21,53 +21,17 @@ MAX_IMAGE_BYTES = 12 * 1024 * 1024
 USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_deals)"
 class _ImageParser(HTMLParser):
     def __init__(self):
-        super().__init__()
-        self.image_url = None
-        self.title = None
-        self.price = None
-        self._inside_product_title = False
-        self._title_parts = []
-        self._inside_price = False
-        self._price_depth = 0
-        self._price_parts = []
-        self._tag_stack = []
-        self._buybox_depth = 0
-        self._buybox_parts = []
-        self._buybox_source = None
-        self.meta_price = None
-        self.generic_price = None
-        self.price_source = None
-
-    _BUYBOX_IDS = {
-        "corePrice_feature_div", "corePriceDisplay_desktop_feature_div",
-        "apex_desktop", "corePrice_desktop", "price",
-    }
-
+        super().__init__(); self.image_url = None; self.title = None; self.price = None
+        self._inside_product_title = False; self._title_parts = []
     def handle_starttag(self, tag, attrs):
         values = {key.lower(): value for key, value in attrs if key}
-        classes = set((values.get("class") or "").split())
-        tag = tag.lower()
-        is_buybox = values.get("id") in self._BUYBOX_IDS or (
-            tag in {"div", "span"} and "apexPriceToPay" in classes
-        )
-        if is_buybox:
-            self._buybox_depth += 1
-            self._buybox_source = values.get("id") or "apexPriceToPay"
-        self._tag_stack.append((tag, is_buybox))
-        if tag == "meta":
+        if tag.lower() == "meta":
             key = (values.get("property") or values.get("name") or "").lower()
-            if key in {"og:image", "twitter:image"}:
-                self.image_url = values.get("content") or self.image_url
-            elif key in {"og:title", "twitter:title"}:
-                self.title = values.get("content") or self.title
-            elif key in {"product:price:amount", "og:price:amount", "price"}:
-                self.meta_price = values.get("content") or self.meta_price
-                self.price = self.meta_price
-        elif tag == "span" and values.get("id") == "productTitle":
+            if key in {"og:image", "twitter:image"}: self.image_url = values.get("content") or self.image_url
+            elif key in {"og:title", "twitter:title"}: self.title = values.get("content") or self.title
+            elif key in {"product:price:amount", "og:price:amount", "price"}: self.price = values.get("content") or self.price
+        elif tag.lower() == "span" and values.get("id") == "productTitle":
             self._inside_product_title = True
-        elif tag in {"div", "span"} and "a-price" in classes:
-            self._inside_price = True
-            self._price_depth += 1
         elif tag.lower() == "img":
             if values.get("data-old-hires"):
                 self.image_url = values["data-old-hires"]
@@ -79,46 +43,15 @@ class _ImageParser(HTMLParser):
                     pass
             elif values.get("src") and _valid_image_url(values["src"]):
                 self.image_url = values["src"]
-
     def handle_data(self, data):
         if self._inside_product_title:
             self._title_parts.append(data)
-        if self._inside_price and data.strip():
-            self._price_parts.append(data.strip())
-        if self._buybox_depth and data.strip():
-            self._buybox_parts.append(data.strip())
-
     def handle_endtag(self, tag):
-        tag = tag.lower()
-        # Close the matching open element and any malformed nested elements above it.
-        closed = []
-        for index in range(len(self._tag_stack) - 1, -1, -1):
-            if self._tag_stack[index][0] == tag:
-                closed = self._tag_stack[index:]
-                self._tag_stack = self._tag_stack[:index]
-                break
-        if closed:
-            self._buybox_depth = max(0, self._buybox_depth - sum(1 for _, marker in closed if marker))
-        if tag == "span" and self._inside_product_title:
+        if tag.lower() == "span" and self._inside_product_title:
             self._inside_product_title = False
             parsed = " ".join(" ".join(self._title_parts).split())
             if parsed:
                 self.title = parsed
-        if tag.lower() in {"div", "span"} and self._inside_price:
-            self._price_depth -= 1
-            if self._price_depth <= 0:
-                self._inside_price = False
-                parsed_price = " ".join(" ".join(self._price_parts).split())
-                if parsed_price:
-                    self.generic_price = parsed_price
-                    if not self.price:
-                        self.price = parsed_price
-        if tag in {"div", "span"} and self._buybox_depth == 0 and self._buybox_parts:
-            parsed_buybox = " ".join(" ".join(self._buybox_parts).split())
-            if parsed_buybox:
-                self.price = parsed_buybox
-                self.price_source = self._buybox_source or "buybox"
-
 def _valid_image_url(url: str | None) -> bool:
     try:
         parsed = urlparse(url or "")
@@ -145,19 +78,12 @@ def find_amazon_product_details(asin: str, *, session=None) -> dict:
         if _valid_image_url(parser.image_url): out["image_url"] = parser.image_url
         if parser.title: out["title"] = parser.title.strip()
         if parser.price:
-            raw_price = parser.price.strip()
-            normalized = raw_price.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))
-            normalized = normalized.replace("٫", ".").replace("٬", "").replace(",", "")
-            match = re.search(r"\d+(?:\.\d{1,2})?", normalized)
-            if match:
-                amount = float(match.group(0))
-                out["price"] = f"{amount:.2f} جنيه".replace(".00 جنيه", " جنيه")
-                source = parser.price_source or ("meta" if parser.meta_price else "generic-a-price")
-                print(f"AMAZON_PRICE_SELECTED source={source} amount={amount:.2f} EGP")
-            else:
-                print("AMAZON_PRICE_UNPARSEABLE; product will be deferred")
-        else:
-            print("AMAZON_PRICE_MISSING; product will be deferred")
+            try:
+                out["price"] = f"{float(parser.price):.2f} جنيه".replace(".00 جنيه", " جنيه").strip()
+                # Keep as "159.99 جنيه" - strip trailing .00 only for whole pounds
+                if out["price"].endswith(".00 جنيه"): out["price"] = out["price"].replace(".00 جنيه", " جنيه")
+            except ValueError:
+                out["price"] = parser.price.strip()
         return out
     finally:
         if owns_session: client.close()

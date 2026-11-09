@@ -111,15 +111,12 @@ async def publish_one() -> bool:
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         caption = str(candidate.get("caption_preview") or "").strip()
         live = find_amazon_product_details(str(candidate.get("asin") or "")) or {}
-        if not live.get("title") or not live.get("image_url"):
-            print("PUBLISH BLOCKED: matching Amazon product image/title could not be verified.")
+        if not live.get("title") or not live.get("image_url") or not live.get("price"):
+            print("PUBLISH BLOCKED: matching Amazon product image/title/price could not be verified.")
             return False
         image_url = str(live["image_url"])
         product_name = str(candidate.get("product_name_source") or live["title"])
-        product_price = str(candidate.get("advertised_price") or "").strip()
-        if not product_price:
-            print("PUBLISH BLOCKED: source post price is missing.")
-            return False
+        product_price = str(live["price"]).strip()
         if not caption:
             print("PUBLISH BLOCKED: candidate caption is empty.")
             return False
@@ -133,9 +130,9 @@ async def publish_one() -> bool:
             "",
             f"💰 السعر: {live_price_text}",
             "",
-            "⚠️ قد يتغير السعر والتوافر لدى المعلن.",
-            "",
             f"🔗 لينك العرض والشراء: {affiliate_url}",
+            "",
+            "⚠️ قد يتغير السعر أو التوافر لدى المعلن.",
             "",
             "تابع عروض Cairo Deals اليومية:",
             "📲 تيليجرام: https://t.me/cairo_deals",
@@ -151,8 +148,8 @@ async def publish_one() -> bool:
                 last_facebook = float(last_facebook)
             except (TypeError, ValueError):
                 last_facebook = 0
-            if last_facebook and time.time() - last_facebook < 10 * 60:
-                print("PUBLISH BLOCKED: Facebook's ten-minute publishing interval has not elapsed.")
+            if last_facebook and time.time() - last_facebook < 60 * 60:
+                print("PUBLISH BLOCKED: Facebook's one-hour publishing interval has not elapsed.")
                 return False
             try:
                 facebook_id = await asyncio.to_thread(
