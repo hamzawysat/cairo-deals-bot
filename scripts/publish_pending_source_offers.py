@@ -60,7 +60,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     lines = [f"🛍️ {name}", ""]
     if price_text:
         lines.extend([f"💰 السعر: {price_text}", ""])
-    lines.extend([f"🔗 لينك العرض والشراء: {url}", "", "تابع عروض Cairo Deals اليومية:"])
+    lines.extend([f"🔗 لينك العرض والشراء: {url}", "", "⚠️ قد يتغير السعر أو التوافر لدى المعلن.", "", "تابع عروض Cairo Deals اليومية:"])
     if for_telegram:
         lines.extend([
             f"📲 تيليجرام: [اضغط هنا]({TELEGRAM_LINK})",
