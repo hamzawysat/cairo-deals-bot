@@ -248,8 +248,8 @@ def test_manual_source_publisher_keeps_telegram_two_minute_setting_and_facebook_
 def test_manual_facebook_wait_does_not_block_telegram_delivery():
     from pathlib import Path
     manual = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
-    assert "FACEBOOK SKIPPED: one-hour publishing interval has not elapsed; Telegram will continue." in manual
-    assert "return False" not in manual.split("FACEBOOK SKIPPED: one-hour publishing interval has not elapsed; Telegram will continue.", 1)[1].split("platform_status = dict", 1)[0]
+    assert "FACEBOOK SKIPPED: two-minute publishing interval has not elapsed; Telegram will continue." in manual
+    assert "return False" not in manual.split("FACEBOOK SKIPPED: two-minute publishing interval has not elapsed; Telegram will continue.", 1)[1].split("platform_status = dict", 1)[0]
 
 
 def test_telegram_confirmation_persists_asin_for_cross_message_deduplication():
