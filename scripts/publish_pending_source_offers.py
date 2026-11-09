@@ -172,7 +172,11 @@ async def publish_pending() -> bool:
                 except Exception:
                     _live = {}
                 if not _live.get("title") or not _live.get("image_url") or not _live.get("price"):
-                    print(f"RETRY QUEUED source message {candidate.get('source_message_id')}: live Amazon title/image/price missing; Amazon price is mandatory.")
+                    missing = [field for field in ("title", "image_url", "price") if not _live.get(field)]
+                    print(
+                        f"AMAZON DATA DEFERRED source message {candidate.get('source_message_id')}: "
+                        f"missing live {', '.join(missing)}; no source-price fallback; queued for retry."
+                    )
                     deferred_candidates.append(candidate)
                     continue
                 candidate = dict(candidate)
@@ -286,8 +290,9 @@ async def publish_pending() -> bool:
             save_state(state)
             print(f"RETRY QUEUE UPDATED: {len(deferred_candidates)} offer(s) moved behind the next candidate.")
         print(f"AUTO-PUBLISH FINISHED: {processed} offer(s) completed this run.")
-        # A transient failure must not mark the whole run failed if a later offer was delivered.
-        return processed > 0 or not deferred_candidates
+        # Missing live Amazon fields are retryable product-level conditions, not
+        # workflow failures. Real delivery and verification failures remain fatal.
+        return all_ok
     except Exception as exc:
         print(f"AUTO-PUBLISH FAILED: {type(exc).__name__}; pending offers were retained.")
         return False
