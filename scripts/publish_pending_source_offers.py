@@ -74,7 +74,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     return "\n".join(lines).strip()
 
 
-FACEBOOK_INTERVAL_SECONDS = 2 * 60  # TEMP TEST: Facebook every two minutes; restore after verification
+FACEBOOK_INTERVAL_SECONDS = 5 * 60  # Facebook is attempted at most once every five minutes
 
 
 def _facebook_due(state: dict) -> bool:
@@ -84,6 +84,14 @@ def _facebook_due(state: dict) -> bool:
     except (TypeError, ValueError):
         return True
     return (time.time() - last) >= FACEBOOK_INTERVAL_SECONDS
+
+
+def _telegram_message_matches(message, candidate: dict) -> bool:
+    """Only trust a saved Telegram ID when its text identifies this exact offer."""
+    body = str(getattr(message, "message", "") or "")
+    expected_name = str(candidate.get("product_name_source") or "").strip()
+    expected_url = str(candidate.get("affiliate_url") or "").strip()
+    return bool(body and expected_name and expected_url and expected_name in body and expected_url in body)
 
 
 async def publish_pending() -> bool:
@@ -198,17 +206,20 @@ async def publish_pending() -> bool:
                 except Exception:
                     # Do not clear a saved delivery record when Telegram cannot be checked.
                     existing = "CHECK_FAILED"
-                if existing is None:
-                    platform_status.pop("telegram", None)
-                    state.setdefault("platform_status", {})[key] = platform_status
-                    save_state(state)
-                    telegram_id = None
-                    print(f"TELEGRAM STALE STATUS CLEARED for source {message_id}: saved destination message does not exist.")
-                elif existing == "CHECK_FAILED":
+                if existing == "CHECK_FAILED":
                     all_ok = False
                     deferred_candidates.append(candidate)
                     print(f"TELEGRAM VERIFY FAILED for source {message_id}: could not verify saved destination message; queued for retry.")
                     continue
+                if existing is None or not _telegram_message_matches(existing, candidate):
+                    platform_status.pop("telegram", None)
+                    state.setdefault("platform_status", {})[key] = platform_status
+                    save_state(state)
+                    telegram_id = None
+                    reason = "message does not exist" if existing is None else "message content does not match this offer"
+                    print(f"TELEGRAM STALE STATUS CLEARED for source {message_id}: saved destination {reason}.")
+                else:
+                    print(f"TELEGRAM ALREADY CONFIRMED for source {message_id}: saved message matches this offer.")
             if not telegram_id:
                 try:
                     with tempfile.TemporaryDirectory(prefix="cairo-telegram-card-") as temp_dir:
@@ -234,19 +245,11 @@ async def publish_pending() -> bool:
             platform_status = dict(state.get("platform_status", {}).get(key, {}))
             if not platform_status.get("facebook"):
                 if not _facebook_due(state):
-                    print(f"FACEBOOK SKIPPED for source {message_id}: less than 2 hours since last Facebook post.")
-                    # FIX: Don't block Telegram queue waiting for Facebook.
-                    # Telegram is done, remove from pending so next Telegram ad can publish.
-                    # Facebook will pick up a later candidate after 2h.
-                    state["pending_candidates"] = [
-                        item for item in state.get("pending_candidates", [])
-                        if str(item.get("source_message_id")) != key
-                    ]
-                    published = {int(value) for value in state.get("published_message_ids", [])}
-                    published.add(message_id)
-                    state["published_message_ids"] = sorted(published)[-1000:]
+                    print(f"FACEBOOK SKIPPED for source {message_id}: five-minute interval has not elapsed; offer remains queued for Facebook.")
+                    # Keep the candidate pending. Telegram's independently verified
+                    # status prevents duplicates; a later two-minute run retries Facebook
+                    # once the five-minute interval has elapsed.
                     save_state(state)
-                    print(f"OFFER COMPLETE (Telegram only, Facebook skipped): source message {message_id}.")
                     continue
                 else:
                     try:

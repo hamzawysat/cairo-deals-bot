@@ -192,3 +192,30 @@ def test_manual_workflow_does_not_run_automatic_queue_first():
     from pathlib import Path
     content = Path(".github/workflows/check-source-telegram.yml").read_text(encoding="utf-8")
     assert "inputs.publish_one != true" in content
+
+
+
+def test_saved_telegram_message_must_match_offer_name_and_affiliate_url():
+    from types import SimpleNamespace
+    from scripts.publish_pending_source_offers import _telegram_message_matches
+
+    candidate = {
+        "product_name_source": "لمبة LED حمراء",
+        "affiliate_url": "https://link.amazon/B049WGppS",
+    }
+    matching = SimpleNamespace(message="🛍️ لمبة LED حمراء\n🔗 https://link.amazon/B049WGppS")
+    wrong_offer = SimpleNamespace(message="🛍️ منتج آخر\n🔗 https://link.amazon/OTHER")
+    partial_match = SimpleNamespace(message="🛍️ لمبة LED حمراء\n🔗 https://link.amazon/OTHER")
+
+    assert _telegram_message_matches(matching, candidate) is True
+    assert _telegram_message_matches(wrong_offer, candidate) is False
+    assert _telegram_message_matches(partial_match, candidate) is False
+
+
+def test_facebook_cadence_is_five_minutes_and_waiting_offer_is_not_removed():
+    from pathlib import Path
+    content = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
+
+    assert "FACEBOOK_INTERVAL_SECONDS = 5 * 60" in content
+    assert "five-minute interval has not elapsed; offer remains queued for Facebook" in content
+    assert "less than 2 hours since last Facebook post" not in content
