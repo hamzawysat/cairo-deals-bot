@@ -56,7 +56,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     if not name or not url:
         fallback = str(candidate.get("caption_preview") or "").strip()
         if fallback and PRICE_AVAILABILITY_NOTICE not in fallback:
-            return f"{fallback}\\n\\n{PRICE_AVAILABILITY_NOTICE}"
+            return f"{fallback}\n\n{PRICE_AVAILABILITY_NOTICE}"
         return fallback
 
     # Keep the exact supplied price text and affiliate URL; only presentation changes.
