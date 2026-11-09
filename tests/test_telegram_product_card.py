@@ -95,3 +95,49 @@ def test_amazon_page_parser_reads_product_title_span_and_dynamic_image():
     )
     assert parser.title == "منتج أمازون تجريبي"
     assert parser.image_url == "https://m.media-amazon.com/images/I/item.jpg"
+
+
+
+def test_buybox_price_overrides_stale_meta_price():
+    parser = _ImageParser()
+    parser.feed(
+        '<meta property="product:price:amount" content="621">'
+        '<div id="corePrice_feature_div">'
+        '<span class="a-price"><span class="a-offscreen">754.00 جنيه</span></span>'
+        '</div>'
+    )
+    assert parser.price == "754.00 جنيه"
+    assert parser.price_source == "corePrice_feature_div"
+
+
+def test_buybox_ignores_strikethrough_and_installment_prices_outside_buybox():
+    parser = _ImageParser()
+    parser.feed(
+        '<span class="a-price a-text-price"><span class="a-offscreen">900.00 جنيه</span></span>'
+        '<div id="corePrice_feature_div">'
+        '<span class="a-price"><span class="a-offscreen">754.00 جنيه</span></span>'
+        '</div>'
+        '<div id="installmentPrice">188.50 جنيه شهريًا</div>'
+    )
+    assert parser.price == "754.00 جنيه"
+
+
+def test_meta_is_fallback_only_when_buybox_is_absent():
+    parser = _ImageParser()
+    parser.feed('<meta property="product:price:amount" content="621">')
+    assert parser.price == "621"
+    assert parser.price_source is None
+
+
+def test_buybox_can_be_extracted_from_apex_price_to_pay():
+    parser = _ImageParser()
+    parser.feed(
+        '<div class="apexPriceToPay">'
+        '<span class="a-offscreen">754.00 جنيه</span>'
+        '</div>'
+    )
+    assert parser.price == "754.00 جنيه"
+    assert parser.price_source == "apexPriceToPay"
+
+
+def test_amazon_page_parser_reads_product_title_span_and_dynamic_image():
