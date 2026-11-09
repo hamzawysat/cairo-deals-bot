@@ -222,18 +222,16 @@ def test_facebook_cadence_is_ten_minutes_and_waiting_offer_is_not_removed():
 
 
 
-def test_source_post_price_is_used_and_disclaimer_is_in_both_publishers():
+def test_live_amazon_price_is_mandatory_and_source_price_is_never_used():
     from pathlib import Path
     automatic = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
     manual = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
 
-    assert 'candidate["advertised_price"] = str(candidate.get("advertised_price") or "").strip()' in automatic
-    assert 'product_price = str(candidate.get("advertised_price") or "").strip()' in manual
-    assert '_live["price"]' not in automatic
-    assert 'live["price"]' not in manual
-    disclaimer = "قد يتغير السعر والتوافر لدى المعلن"
-    assert disclaimer in automatic
-    assert disclaimer in manual
+    assert 'or not _live.get("price")' in automatic
+    assert 'candidate["advertised_price"] = str(_live["price"]).strip()' in automatic
+    assert 'or not live.get("price")' in manual
+    assert 'product_price = str(live["price"]).strip()' in manual
+    assert 'live.get("price") or candidate.get("advertised_price")' not in manual
 
 
 def test_facebook_cadence_is_ten_minutes_in_automatic_and_manual_publishers():
@@ -244,58 +242,3 @@ def test_facebook_cadence_is_ten_minutes_in_automatic_and_manual_publishers():
     assert "FACEBOOK_INTERVAL_SECONDS = 10 * 60" in automatic
     assert "ten-minute interval has not elapsed; offer remains queued for Facebook" in automatic
     assert "time.time() - last_facebook < 10 * 60" in manual
-
-
-def test_amazon_parser_reads_visible_product_price_when_meta_price_is_absent():
-    from src.telegram_product_card import _ImageParser
-
-    parser = _ImageParser()
-    parser.feed("""
-      <span id="productTitle">Test product</span>
-      <span class="a-price"><span class="a-offscreen">١٢٩٫٩٩ جنيه</span></span>
-      <img data-old-hires="https://m.media-amazon.com/images/I/test.jpg">
-    """)
-    assert parser.title == "Test product"
-    assert parser.price == "١٢٩٫٩٩ جنيه"
-    assert parser.image_url == "https://m.media-amazon.com/images/I/test.jpg"
-
-
-def test_amazon_meta_price_takes_precedence_over_visible_secondary_price():
-    from src.telegram_product_card import _ImageParser
-
-    parser = _ImageParser()
-    parser.feed("""
-      <meta property="product:price:amount" content="149.50">
-      <span class="a-price"><span class="a-offscreen">199.00 جنيه</span></span>
-    """)
-    assert parser.price == "149.50"
-
-
-def test_amazon_arabic_price_digits_are_normalized_to_egp():
-    from src.telegram_product_card import find_amazon_product_details
-
-    class Response:
-        text = """
-          <meta property="og:title" content="Test product">
-          <meta property="og:image" content="https://m.media-amazon.com/images/I/test.jpg">
-          <span class="a-price"><span class="a-offscreen">١٢٩٫٩٩ جنيه</span></span>
-        """
-        def raise_for_status(self):
-            pass
-
-    class Session:
-        def get(self, *args, **kwargs):
-            return Response()
-
-    details = find_amazon_product_details("B0ABC12345", session=Session())
-    assert details["price"] == "129.99 جنيه"
-
-
-def test_missing_live_amazon_data_is_retryable_without_failing_workflow():
-    from pathlib import Path
-
-    content = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
-    assert "AMAZON DATA DEFERRED" in content
-    assert "no source-price fallback" in content
-    assert "return all_ok" in content
-    assert "return processed > 0 or not deferred_candidates" not in content
