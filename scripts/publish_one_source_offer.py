@@ -135,19 +135,20 @@ async def publish_one() -> bool:
             except (TypeError, ValueError):
                 last_facebook = 0
             if last_facebook and time.time() - last_facebook < FACEBOOK_INTERVAL_SECONDS:
-                print("PUBLISH BLOCKED: Facebook's one-hour publishing interval has not elapsed.")
-                return False
-            try:
-                facebook_id = await asyncio.to_thread(
-                    publish_facebook, meta_token, caption, image_url
-                )
-            except Exception:
-                print("FACEBOOK FAILED: Telegram was not attempted; retry is safe.")
-                return False
-            state = mark_platform_published(state, candidate, "facebook", facebook_id)
-            state["last_facebook_publish_at"] = time.time()
-            save_state(state)
-            print(f"FACEBOOK CONFIRMED: Meta post {facebook_id}")
+                print("FACEBOOK SKIPPED: one-hour publishing interval has not elapsed; Telegram will continue.")
+            else:
+                try:
+                    facebook_id = await asyncio.to_thread(
+                        publish_facebook, meta_token, caption, image_url
+                    )
+                except Exception:
+                    print("FACEBOOK FAILED: Telegram will still be attempted; retry is safe.")
+                    facebook_id = None
+                if facebook_id:
+                    state = mark_platform_published(state, candidate, "facebook", facebook_id)
+                    state["last_facebook_publish_at"] = time.time()
+                    save_state(state)
+                    print(f"FACEBOOK CONFIRMED: Meta post {facebook_id}")
 
         platform_status = dict(state.get("platform_status", {}).get(message_key, {}))
         target = await asyncio.wait_for(client.get_entity(TARGET_CHANNEL), timeout=20)

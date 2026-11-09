@@ -62,7 +62,8 @@ def test_message_keeps_original_affiliate_url_and_omits_long_copy():
 def test_message_does_not_invent_price():
     text = message_for({"title": "منتج", "price_egp": None}, "https://example.com")
     assert "💰" not in text
-    assert text.endswith("https://example.com")
+    assert "https://example.com" in text
+    assert text.endswith("⚠️ قد يتغير السعر أو التوافر لدى المعلن.")
 
 
 
