@@ -17,4 +17,4 @@ def test_message_ignores_original_price_when_current_price_missing():
         "price_egp": None,
         "original_price_egp": "150",
     }, "https://example.com")
-    assert "السعر" not in text
+    assert "💰" not in text

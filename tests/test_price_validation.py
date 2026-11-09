@@ -7,7 +7,7 @@ def test_message_omits_non_numeric_current_price():
         "price_egp": "unknown",
         "original_price_egp": 150,
     }, "https://example.com")
-    assert "السعر" not in text
+    assert "💰" not in text
 
 
 def test_message_omits_infinite_current_price():
@@ -15,7 +15,7 @@ def test_message_omits_infinite_current_price():
         "title": "منتج",
         "price_egp": "inf",
     }, "https://example.com")
-    assert "السعر" not in text
+    assert "💰" not in text
 
 
 def test_invalid_price_does_not_increase_offer_score():
