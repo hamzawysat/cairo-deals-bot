@@ -8,7 +8,7 @@ from .facebook_publisher import send_facebook, FacebookPublishError
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.getenv("BOT_STATE_DB", ROOT / "data" / "state.sqlite3"))
-FACEBOOK_INTERVAL_SECONDS = 60 * 60
+FACEBOOK_INTERVAL_SECONDS = 2 * 60
 
 
 def load_json(path):
@@ -307,7 +307,7 @@ def run_once():
                     except (TypeError, ValueError):
                         facebook_due = True
                 if not facebook_due:
-                    print(f"FACEBOOK_SKIPPED {offer['id']}: one-hour interval has not elapsed")
+                    print(f"FACEBOOK_SKIPPED {offer['id']}: two-minute interval has not elapsed")
                 else:
                     try:
                         facebook_post_id = send_facebook(
