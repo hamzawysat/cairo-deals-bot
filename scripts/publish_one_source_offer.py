@@ -120,12 +120,22 @@ async def publish_one() -> bool:
         if not caption:
             print("PUBLISH BLOCKED: candidate caption is empty.")
             return False
-        source_price = str(candidate.get("advertised_price") or "").strip()
         live_price_text = product_price if "جنيه" in product_price else f"{product_price} جنيه"
-        if source_price:
-            caption = caption.replace(source_price, live_price_text)
-        else:
-            caption = f"🛍️ {product_name}\\n\\n💰 السعر: {live_price_text}\\n\\n{candidate.get('affiliate_url', '')}"
+        affiliate_url = str(candidate.get("affiliate_url") or "").strip()
+        if not affiliate_url:
+            print("PUBLISH BLOCKED: affiliate purchase link is missing.")
+            return False
+        caption = "\\n".join([
+            f"🛍️ {product_name}",
+            "",
+            f"💰 السعر: {live_price_text}",
+            "",
+            f"🔗 لينك العرض والشراء: {affiliate_url}",
+            "",
+            "تابع عروض Cairo Deals اليومية:",
+            "📲 تيليجرام: https://t.me/cairo_deals",
+            "📘 فيسبوك: https://www.facebook.com/share/19hQqVpCuG/",
+        ])
 
         # Confirm each destination independently. A retry skips only a destination
         # that already confirmed this exact source message.
