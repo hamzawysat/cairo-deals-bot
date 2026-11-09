@@ -240,6 +240,6 @@ def test_facebook_cadence_is_one_hour_in_automatic_and_manual_publishers():
     automatic = Path("scripts/publish_pending_source_offers.py").read_text(encoding="utf-8")
     manual = Path("scripts/publish_one_source_offer.py").read_text(encoding="utf-8")
 
-    assert "FACEBOOK_INTERVAL_SECONDS = 10 * 60" in automatic
+    assert "FACEBOOK_INTERVAL_SECONDS = 60 * 60" in automatic
     assert "one-hour interval has not elapsed; offer remains queued for Facebook" in automatic
     assert "time.time() - last_facebook < 60 * 60" in manual
