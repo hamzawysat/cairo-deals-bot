@@ -7,3 +7,6 @@ __pycache__/
 *.session
 *.session-journal
 telegram_session.txt
+artifacts/
+logs/
+*.log

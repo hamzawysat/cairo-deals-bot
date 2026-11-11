@@ -286,3 +286,13 @@ def test_preview_drops_already_telegram_published_duplicate_asin():
         ],
     }
     assert [c["asin"] for c in filter_pending_candidates(state["pending_candidates"], state)] == ["C0ABC12345"]
+
+
+def test_env_example_has_separate_meta_fields_and_safe_local_publisher_default():
+    from pathlib import Path
+    content = Path(".env.example").read_text(encoding="utf-8")
+    assert "META_PAGE_ACCESS_TOKEN=\nMETA_PAGE_NAME=cairodeals" in content
+    assert r"\\nMETA_PAGE_NAME" not in content
+    assert "SOURCE_AUTO_PUBLISH_ENABLED=false" in content
+    assert "TELEGRAM_API_ID=" in content
+    assert "TELEGRAM_SESSION=" in content
