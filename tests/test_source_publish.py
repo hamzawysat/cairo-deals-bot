@@ -292,7 +292,7 @@ def test_env_example_has_separate_meta_fields_and_safe_local_publisher_default()
     from pathlib import Path
     content = Path(".env.example").read_text(encoding="utf-8")
     assert "META_PAGE_ACCESS_TOKEN=\nMETA_PAGE_NAME=cairodeals" in content
-    assert r"\\nMETA_PAGE_NAME" not in content
+    assert r"\nMETA_PAGE_NAME" not in content
     assert "SOURCE_AUTO_PUBLISH_ENABLED=false" in content
     assert "TELEGRAM_API_ID=" in content
     assert "TELEGRAM_SESSION=" in content
