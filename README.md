@@ -14,6 +14,11 @@ A modular affiliate publishing system serving Hamzawy Sat. Amazon Egypt is the f
 - Offers are ranked by data completeness and optional externally supplied `demand_score` / `quality_score`. These scores must be based on a real source; the bot does not invent demand signals.
 - Duplicate offer IDs are protected by local SQLite state; source-channel delivery state is persisted separately under `artifacts/`.
 
+## Visual identity
+- Telegram product cards use the Hamzawy Sat black, gold, and cream palette.
+- The official Hamzawy Sat logo is stored at `assets/brand/hamzawy-sat-logo.png` and embedded in generated cards.
+- Product image, name, and supplied price remain the primary offer content; no invented discount or price is added.
+
 ## Discovery pipeline
 - `src/discovery.py` reads explicitly configured public RSS 2.0 or Atom feeds.
 - New items are stored in `data/candidates.json` with original source URL, feed name, and timestamps.

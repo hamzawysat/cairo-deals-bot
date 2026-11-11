@@ -12,6 +12,10 @@ from src.telegram_product_card import (
     _load_product_image,
     BRAND_NAME,
     BRAND_SUBNAME,
+    BLACK,
+    GOLD,
+    CREAM,
+    LOGO_PATH,
 )
 
 
@@ -131,6 +135,10 @@ def test_image_loader_waits_and_retries_until_complete_image(monkeypatch):
     assert sleeps == [cards.IMAGE_READY_DELAY_SECONDS, cards.IMAGE_RETRY_DELAY_SECONDS]
 
 
-def test_card_uses_hamzawy_deals_brand():
+def test_card_uses_hamzawy_deals_brand_and_sat_identity():
     assert BRAND_NAME == "Hamzawy"
     assert BRAND_SUBNAME == "Deals"
+    assert BLACK == "#171A22"
+    assert GOLD == "#C9A34F"
+    assert CREAM == "#F8F6F0"
+    assert LOGO_PATH.is_file()
