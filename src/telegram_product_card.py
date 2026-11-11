@@ -15,11 +15,13 @@ CARD_SIZE = (1080, 1350)
 BRAND_NAME = "Hamzawy"
 BRAND_SUBNAME = "Deals"
 
-BLUE = "#0757B8"
-DARK_BLUE = "#12345A"
-YELLOW = "#FFC928"
-RED = "#E53935"
-INK = "#172B45"
+BLACK = "#171A22"
+GOLD = "#C9A34F"
+DARK_GOLD = "#A9822E"
+CREAM = "#F8F6F0"
+BORDER = "#E8E0CF"
+INK = BLACK
+LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "brand" / "hamzawy-sat-logo.png"
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
 IMAGE_READY_DELAY_SECONDS = 3
 IMAGE_DOWNLOAD_ATTEMPTS = 3
@@ -215,23 +217,24 @@ def create_telegram_product_card(
     product_url = image_url or find_amazon_product_image(asin, session=session)
     product = _load_product_image(product_url, session=session)
 
-    canvas = Image.new("RGB", CARD_SIZE, "#F7FAFF")
+    canvas = Image.new("RGB", CARD_SIZE, CREAM)
     draw = ImageDraw.Draw(canvas)
 
     # Brand header.
-    draw.rounded_rectangle((42, 34, 1038, 166), radius=34, fill="white", outline="#DCE9F8", width=3)
-    draw.ellipse((70, 60, 150, 140), fill=BLUE)
-    draw.line((91, 84, 101, 84, 111, 112, 135, 112), fill="white", width=6)
-    draw.line((105, 96, 132, 96), fill="white", width=5)
-    draw.ellipse((111, 119, 120, 128), fill=YELLOW)
-    draw.ellipse((130, 119, 139, 128), fill=YELLOW)
-    draw.text((178, 67), BRAND_NAME, font=_font(42, True), fill=BLUE)
-    draw.text((178, 111), BRAND_SUBNAME, font=_font(34, True), fill=RED)
-    draw.rounded_rectangle((690, 69, 990, 130), radius=28, fill=YELLOW)
-    _draw_rtl(draw, (840, 100), "عرض جديد", _font(34, True), DARK_BLUE)
+    draw.rounded_rectangle((42, 34, 1038, 166), radius=34, fill="white", outline=BORDER, width=3)
+    if LOGO_PATH.is_file():
+        with Image.open(LOGO_PATH) as logo_source:
+            logo = ImageOps.contain(logo_source.convert("RGBA"), (112, 112), method=Image.Resampling.LANCZOS)
+            logo_layer = Image.new("RGBA", (116, 116), (255, 255, 255, 0))
+            logo_layer.alpha_composite(logo, ((116 - logo.width) // 2, (116 - logo.height) // 2))
+            canvas.paste(logo_layer, (58, 42), logo_layer)
+    draw.text((196, 67), BRAND_NAME, font=_font(42, True), fill=BLACK)
+    draw.text((196, 111), BRAND_SUBNAME, font=_font(34, True), fill=DARK_GOLD)
+    draw.rounded_rectangle((690, 69, 990, 130), radius=28, fill=GOLD)
+    _draw_rtl(draw, (840, 100), "عرض جديد", _font(34, True), BLACK)
 
     # Full product image, contained inside a clean white frame.
-    draw.rounded_rectangle((42, 194, 1038, 876), radius=38, fill="white", outline="#DCE9F8", width=3)
+    draw.rounded_rectangle((42, 194, 1038, 876), radius=38, fill="white", outline=BORDER, width=3)
     image_area = (88, 226, 992, 844)
     fitted = ImageOps.contain(
         product,
@@ -252,10 +255,10 @@ def create_telegram_product_card(
         title_y += 62
 
     # Show only the supplied price; never invent a previous price or discount.
-    draw.rounded_rectangle((180, 1072, 900, 1200), radius=34, fill=RED)
+    draw.rounded_rectangle((180, 1072, 900, 1200), radius=34, fill=BLACK, outline=GOLD, width=5)
     _draw_rtl(draw, (540, 1136), amount, _fit_font(draw, amount, 650, 68, 38), "white")
 
-    draw.rounded_rectangle((42, 1230, 1038, 1320), radius=30, fill=BLUE)
+    draw.rounded_rectangle((42, 1230, 1038, 1320), radius=30, fill=BLACK)
     footer = "رابط الشراء المباشر في نص الإعلان"
     _draw_rtl(draw, (540, 1275), footer, _fit_font(draw, footer, 900, 35, 25), "white")
 
