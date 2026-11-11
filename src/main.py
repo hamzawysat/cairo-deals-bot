@@ -307,7 +307,7 @@ def run_once():
                     except (TypeError, ValueError):
                         facebook_due = True
                 if not facebook_due:
-                    print(f"FACEBOOK_SKIPPED {offer['id']}: two-minute interval has not elapsed")
+                    print(f"FACEBOOK_SKIPPED {offer['id']}: one-hour interval has not elapsed")
                 else:
                     try:
                         facebook_post_id = send_facebook(
