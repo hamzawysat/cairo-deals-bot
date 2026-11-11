@@ -1,4 +1,4 @@
-"""Build Telegram-only Cairo Deals product cards from Amazon Egypt product pages."""
+"""Build Telegram-only Hamzawy Deals product cards from Amazon Egypt product pages."""
 from __future__ import annotations
 from html.parser import HTMLParser
 from pathlib import Path
@@ -12,6 +12,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 PRODUCT_PAGE = "https://www.amazon.eg/dp/{asin}"
 IMAGE_HOSTS = {"m.media-amazon.com","images-na.ssl-images-amazon.com","images-eu.ssl-images-amazon.com",}
 CARD_SIZE = (1080, 1350)
+BRAND_NAME = "Hamzawy"
+BRAND_SUBNAME = "Deals"
 
 BLUE = "#0757B8"
 DARK_BLUE = "#12345A"
@@ -23,7 +25,7 @@ IMAGE_READY_DELAY_SECONDS = 3
 IMAGE_DOWNLOAD_ATTEMPTS = 3
 IMAGE_RETRY_DELAY_SECONDS = 3
 MIN_PRODUCT_IMAGE_DIMENSION = 120
-USER_AGENT = "Mozilla/5.0 (compatible; CairoDealsBot/1.0; +https://t.me/cairo_deals)"
+USER_AGENT = "Mozilla/5.0 (compatible; HamzawyDealsBot/1.0; +https://t.me/cairo_deals)"
 class _ImageParser(HTMLParser):
     def __init__(self):
         super().__init__(); self.image_url = None; self.title = None; self.price = None
@@ -223,8 +225,8 @@ def create_telegram_product_card(
     draw.line((105, 96, 132, 96), fill="white", width=5)
     draw.ellipse((111, 119, 120, 128), fill=YELLOW)
     draw.ellipse((130, 119, 139, 128), fill=YELLOW)
-    draw.text((178, 67), "Cairo", font=_font(42, True), fill=BLUE)
-    draw.text((178, 111), "Deals", font=_font(34, True), fill=RED)
+    draw.text((178, 67), BRAND_NAME, font=_font(42, True), fill=BLUE)
+    draw.text((178, 111), BRAND_SUBNAME, font=_font(34, True), fill=RED)
     draw.rounded_rectangle((690, 69, 990, 130), radius=28, fill=YELLOW)
     _draw_rtl(draw, (840, 100), "عرض جديد", _font(34, True), DARK_BLUE)
 

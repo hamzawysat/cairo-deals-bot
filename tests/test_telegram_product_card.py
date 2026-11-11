@@ -10,6 +10,8 @@ from src.telegram_product_card import (
     create_telegram_product_card,
     find_amazon_product_image,
     _load_product_image,
+    BRAND_NAME,
+    BRAND_SUBNAME,
 )
 
 
@@ -127,3 +129,8 @@ def test_image_loader_waits_and_retries_until_complete_image(monkeypatch):
     assert image.size == (640, 480)
     assert session.get.call_count == 2
     assert sleeps == [cards.IMAGE_READY_DELAY_SECONDS, cards.IMAGE_RETRY_DELAY_SECONDS]
+
+
+def test_card_uses_hamzawy_deals_brand():
+    assert BRAND_NAME == "Hamzawy"
+    assert BRAND_SUBNAME == "Deals"

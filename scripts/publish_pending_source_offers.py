@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish queued Amazon source offers to the enabled Cairo Deals destinations."""
+"""Publish queued Amazon source offers to the enabled Hamzawy Deals destinations."""
 from __future__ import annotations
 
 import asyncio
@@ -64,7 +64,7 @@ def _rebuild_caption(candidate: dict, *, for_telegram: bool = False) -> str:
     lines = [f"🛍️ {name}", ""]
     if price_text:
         lines.extend([f"💰 السعر: {price_text}", ""])
-    lines.extend([f"🔗 لينك العرض والشراء: {url}", "", PRICE_AVAILABILITY_NOTICE, "", "تابع عروض Cairo Deals اليومية:"])
+    lines.extend([f"🔗 لينك العرض والشراء: {url}", "", PRICE_AVAILABILITY_NOTICE, "", "تابع عروض حمزاوي ديلز اليومية:"])
     if for_telegram:
         lines.extend([
             f"📲 تيليجرام: [اضغط هنا]({TELEGRAM_LINK})",
